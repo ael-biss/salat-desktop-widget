@@ -34,6 +34,11 @@ window.salat-settings-window {
     color: #f8fafc;
 }
 
+.salat-pill.overlay-mode {
+    padding: 2px 11px;
+    background-color: #0b0f14;
+}
+
 .salat-pill:hover {
     background-color: #131b24;
     border-color: #10b981;

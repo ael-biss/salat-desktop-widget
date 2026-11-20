@@ -27,12 +27,14 @@ class SettingsWindow(Gtk.Window):
         audio_service: AudioService,
         on_reset_position: Callable[[], None],
         on_refresh_schedule: Callable[[], None],
+        on_restart_app: Callable[[], None],
     ) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.config_service = config_service
         self.audio_service = audio_service
         self.on_reset_position = on_reset_position
         self.on_refresh_schedule = on_refresh_schedule
+        self.on_restart_app = on_restart_app
         self._spin_buttons: Dict[str, Gtk.SpinButton] = {}
         self._suppress_signals = False
 
@@ -77,10 +79,13 @@ class SettingsWindow(Gtk.Window):
         # Section 3: Audio & Notifications
         root.pack_start(self._build_audio_section(), False, False, 0)
 
-        # Section 3: Auto-Lock
+        # Section 4: Auto-Lock
         root.pack_start(self._build_lock_section(), False, False, 0)
 
-        # Section 4: Maintenance & Position
+        # Section 5: Display Mode
+        root.pack_start(self._build_display_section(), False, False, 0)
+
+        # Section 6: Maintenance & Position
         root.pack_start(self._build_actions_section(), False, False, 0)
 
         self._sync_from_config()
@@ -246,6 +251,33 @@ class SettingsWindow(Gtk.Window):
 
         return box
 
+    def _build_display_section(self) -> Gtk.Widget:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.get_style_context().add_class('salat-section')
+
+        title = Gtk.Label(label='DISPLAY MODE', xalign=0)
+        title.get_style_context().add_class('salat-section-title')
+        box.pack_start(title, False, False, 0)
+
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        lbl = Gtk.Label(label='Overlay Top Bar & Overview', xalign=0)
+        lbl.get_style_context().add_class('salat-field-label')
+        self.overlay_switch = Gtk.Switch()
+        self.overlay_switch.connect('notify::active', self._on_overlay_toggled)
+        row.pack_start(lbl, True, True, 0)
+        row.pack_end(self.overlay_switch, False, False, 0)
+        box.pack_start(row, False, False, 0)
+
+        hint = Gtk.Label(
+            label='Keeps the pill visible on the GNOME top bar and Activities Overview.',
+            xalign=0,
+        )
+        hint.set_line_wrap(True)
+        hint.get_style_context().add_class('salat-hint')
+        box.pack_start(hint, False, False, 0)
+
+        return box
+
     def _build_actions_section(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
 
@@ -278,6 +310,7 @@ class SettingsWindow(Gtk.Window):
         self.audio_switch.set_active(cfg.audio_enabled)
         self.lock_switch.set_active(cfg.lock_enabled)
         self.lock_entry.set_text(cfg.custom_lock_command or 'ft_lock')
+        self.overlay_switch.set_active(cfg.overlay_mode)
         self._update_audio_label()
         self._suppress_signals = False
 
@@ -377,6 +410,15 @@ class SettingsWindow(Gtk.Window):
             return
         self.config_service.config.custom_lock_command = entry.get_text().strip() or 'ft_lock'
         self.config_service.save()
+
+    def _on_overlay_toggled(self, switch: Gtk.Switch, _pspec) -> None:
+        if self._suppress_signals:
+            return
+        self.config_service.config.overlay_mode = switch.get_active()
+        self.config_service.config.widget_x = None
+        self.config_service.config.widget_y = None
+        self.config_service.save(notify=False)
+        self.on_restart_app()
 
     def _on_key_press(self, _widget, event) -> bool:
         if event.keyval == Gdk.KEY_Escape:

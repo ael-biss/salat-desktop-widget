@@ -1,6 +1,8 @@
 """Always-on-top draggable desktop pill widget and main controller."""
 
 import datetime
+import os
+import sys
 from typing import Dict, List, Optional, Set
 
 import gi
@@ -34,7 +36,9 @@ class PillWindow(Gtk.Window):
         system_service: SystemService,
         simulate: Optional[str] = None,
     ) -> None:
-        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self._overlay_mode = bool(config_service.config.overlay_mode)
+        win_type = Gtk.WindowType.POPUP if self._overlay_mode else Gtk.WindowType.TOPLEVEL
+        super().__init__(type=win_type)
         self.config_service = config_service
         self.prayer_service = prayer_service
         self.audio_service = audio_service
@@ -79,6 +83,8 @@ class PillWindow(Gtk.Window):
 
         self.pill = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.pill.get_style_context().add_class('salat-pill')
+        if self._overlay_mode:
+            self.pill.get_style_context().add_class('overlay-mode')
         event_box.add(self.pill)
         self.add(event_box)
 
@@ -107,6 +113,7 @@ class PillWindow(Gtk.Window):
             audio_service=self.audio_service,
             on_reset_position=self.reset_position,
             on_refresh_schedule=lambda: self.refresh_data(force=True),
+            on_restart_app=self._restart_app,
         )
         self.popup_win = PopupWindow(
             config_service=self.config_service,
@@ -135,13 +142,22 @@ class PillWindow(Gtk.Window):
             self.reset_position()
         return False
 
+    def _restart_app(self) -> None:
+        self.audio_service.stop()
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
     def reset_position(self) -> None:
         display = Gdk.Display.get_default()
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         geo = monitor.get_geometry()
         width, _ = self.get_size()
-        x = geo.x + geo.width - max(width, 160) - 16
-        y = geo.y + 38
+        if self._overlay_mode:
+            # Place cleanly on the GNOME top bar between the center clock and right indicators
+            x = geo.x + int(geo.width * 0.62)
+            y = geo.y + 1
+        else:
+            x = geo.x + geo.width - max(width, 160) - 16
+            y = geo.y + 38
         self.move(x, y)
         self.config_service.config.widget_x = x
         self.config_service.config.widget_y = y

@@ -17,6 +17,7 @@ class UserConfig:
     friday_reminder_minutes: int = DEFAULT_FRIDAY_REMINDER_MINUTES
     lock_enabled: bool = False
     custom_lock_command: str = 'ft_lock'
+    overlay_mode: bool = True
     widget_x: Optional[int] = None
     widget_y: Optional[int] = None
 
@@ -30,6 +31,7 @@ class UserConfig:
             'fridayReminderMinutes': self.friday_reminder_minutes,
             'lockEnabled': self.lock_enabled,
             'customLockCommand': self.custom_lock_command,
+            'overlayMode': self.overlay_mode,
             'widgetX': self.widget_x,
             'widgetY': self.widget_y,
         }
@@ -65,6 +67,7 @@ class UserConfig:
             friday_reminder_minutes=fri_min,
             lock_enabled=bool(data.get('lockEnabled', False)),
             custom_lock_command=str(data.get('customLockCommand', 'ft_lock') or 'ft_lock'),
+            overlay_mode=bool(data.get('overlayMode', True)),
             widget_x=wx if isinstance(wx, int) else None,
             widget_y=wy if isinstance(wy, int) else None,
         )
