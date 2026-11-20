@@ -255,12 +255,12 @@ class SettingsWindow(Gtk.Window):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         box.get_style_context().add_class('salat-section')
 
-        title = Gtk.Label(label='DISPLAY & TOP BAR OVERLAY', xalign=0)
+        title = Gtk.Label(label='DISPLAY & OVERVIEW', xalign=0)
         title.get_style_context().add_class('salat-section-title')
         box.pack_start(title, False, False, 0)
 
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        lbl = Gtk.Label(label='Pin on Top Bar & Overview', xalign=0)
+        lbl = Gtk.Label(label='Stay visible in Activities Overview', xalign=0)
         lbl.get_style_context().add_class('salat-field-label')
         self.overlay_switch = Gtk.Switch()
         self.overlay_switch.connect('notify::active', self._on_overlay_toggled)
@@ -269,7 +269,7 @@ class SettingsWindow(Gtk.Window):
         box.pack_start(row, False, False, 0)
 
         hint = Gtk.Label(
-            label='Keeps widget visible on the top bar & Activities Overview. Drag pill anywhere to move.',
+            label='Keeps the pill visible when pressing Super (Overview). Kept just below the top bar so clicks are never blocked by GNOME.',
             xalign=0,
         )
         hint.set_line_wrap(True)

@@ -151,10 +151,26 @@ class PillWindow(Gtk.Window):
         if self.popup_win.get_visible():
             self.popup_win.update_content(self.day_data, self.active, self.entries, datetime.datetime.now())
 
+    def _clamp_position(self, x: int, y: int) -> tuple:
+        display = Gdk.Display.get_default()
+        monitor = display.get_primary_monitor() or display.get_monitor(0)
+        geo = monitor.get_geometry()
+        width, height = self.get_size()
+        # Keep pill below GNOME Shell's 28px top bar so clicks are never intercepted by the panel
+        min_y = geo.y + 28
+        max_y = geo.y + geo.height - max(height, 30) - 4
+        min_x = geo.x + 4
+        max_x = geo.x + geo.width - max(width, 140) - 4
+        return (max(min_x, min(x, max_x)), max(min_y, min(y, max_y)))
+
     def _apply_initial_position(self) -> bool:
         cfg = self.config_service.config
         if isinstance(cfg.widget_x, int) and isinstance(cfg.widget_y, int):
-            self.move(cfg.widget_x, cfg.widget_y)
+            cx, cy = self._clamp_position(cfg.widget_x, cfg.widget_y)
+            self.move(cx, cy)
+            if cx != cfg.widget_x or cy != cfg.widget_y:
+                cfg.widget_x, cfg.widget_y = cx, cy
+                self.config_service.save(notify=False)
         else:
             self.reset_position()
         return False
@@ -164,12 +180,9 @@ class PillWindow(Gtk.Window):
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         geo = monitor.get_geometry()
         width, _ = self.get_size()
-        if self.config_service.config.overlay_mode:
-            x = geo.x + int(geo.width * 0.60)
-            y = geo.y + 2
-        else:
-            x = geo.x + geo.width - max(width, 160) - 16
-            y = geo.y + 38
+        x = geo.x + geo.width - max(width, 160) - 16
+        y = geo.y + 32
+        x, y = self._clamp_position(x, y)
         self.move(x, y)
         self.config_service.config.widget_x = x
         self.config_service.config.widget_y = y
@@ -198,7 +211,8 @@ class PillWindow(Gtk.Window):
             self._drag_moved = True
             if self.popup_win.get_visible():
                 self.popup_win.hide()
-            self.move(self._win_start_x + dx, self._win_start_y + dy)
+            nx, ny = self._clamp_position(self._win_start_x + dx, self._win_start_y + dy)
+            self.move(nx, ny)
         return True
 
     def _on_button_release(self, _widget, event) -> bool:
