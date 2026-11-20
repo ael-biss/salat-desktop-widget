@@ -6,9 +6,9 @@
 AUTOSTART_DIR  := $(HOME)/.config/autostart
 AUTOSTART_FILE := $(AUTOSTART_DIR)/salat-desktop-widget.desktop
 
-.PHONY: all run stop autostart disable-autostart check test sim-adhan sim-iqama sim-jumaa help
+.PHONY: install run stop autostart disable-autostart check test sim-adhan sim-iqama sim-jumaa help
 
-all: run
+install: run autostart
 
 run:
 	@pkill -f "salat-desktop-widget/[r]un.py" 2>/dev/null || true
@@ -52,6 +52,7 @@ sim-jumaa:
 
 help:
 	@echo "Available commands:"
+	@echo "  make install           - Install widget (run + autostart)"
 	@echo "  make run               - Start (or restart) the desktop widget"
 	@echo "  make stop              - Stop the running widget"
 	@echo "  make autostart         - Auto-start widget on login (~/.config/autostart)"
