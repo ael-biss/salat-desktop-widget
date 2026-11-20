@@ -45,9 +45,13 @@ class PopupWindow(Gtk.Window):
 
         # Header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        pixbuf = load_mosque_icon(22)
-        if pixbuf:
-            header.pack_start(Gtk.Image.new_from_pixbuf(pixbuf), False, False, 0)
+        self._icon_green = load_mosque_icon(22, red=False)
+        self._icon_red = load_mosque_icon(22, red=True)
+        self._is_red_icon = False
+        self.header_icon = Gtk.Image()
+        if self._icon_green:
+            self.header_icon.set_from_pixbuf(self._icon_green)
+            header.pack_start(self.header_icon, False, False, 0)
 
         title_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         self.title_lbl = Gtk.Label(label=CITY_NAME, xalign=0)
@@ -133,7 +137,8 @@ class PopupWindow(Gtk.Window):
         if not active:
             return
         ctx = self.hero_card.get_style_context()
-        if active.phase == 'IQAMA':
+        is_iqama = active.phase == 'IQAMA'
+        if is_iqama:
             ctx.add_class('iqama-mode')
             self.hero_badge.set_text('IQAMA COUNTDOWN')
             diff = (active.prayer.iqama_dt - now).total_seconds()
@@ -141,6 +146,12 @@ class PopupWindow(Gtk.Window):
             ctx.remove_class('iqama-mode')
             self.hero_badge.set_text('NEXT PRAYER')
             diff = (active.prayer.adhan_dt - now).total_seconds()
+
+        if is_iqama != self._is_red_icon:
+            self._is_red_icon = is_iqama
+            pixbuf = self._icon_red if is_iqama else self._icon_green
+            if pixbuf:
+                self.header_icon.set_from_pixbuf(pixbuf)
 
         self.hero_name.set_text(active.prayer.name)
         self.hero_countdown.set_text(format_countdown(diff))
@@ -167,6 +178,8 @@ class PopupWindow(Gtk.Window):
             return
 
         active_key = active.prayer.key if active else None
+        is_iqama = bool(active and active.phase == 'IQAMA')
+        is_friday = now.weekday() == 4
         delays = self.config_service.config.iqama_delays
 
         for key in DISPLAY_ORDER:
@@ -175,8 +188,11 @@ class PopupWindow(Gtk.Window):
             row.get_style_context().add_class('salat-row')
             if key == active_key:
                 row.get_style_context().add_class('salat-row-active')
+                if is_iqama:
+                    row.get_style_context().add_class('iqama-mode')
 
-            name_lbl = Gtk.Label(label=PRAYER_LABELS[key], xalign=0)
+            display_name = "Jumu'ah" if (key == 'Dhuhr' and is_friday) else PRAYER_LABELS[key]
+            name_lbl = Gtk.Label(label=display_name, xalign=0)
             name_lbl.get_style_context().add_class('salat-row-name')
             row.pack_start(name_lbl, True, True, 0)
 

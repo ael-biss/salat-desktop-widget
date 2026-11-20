@@ -9,7 +9,12 @@ gi.require_version('Gdk', '3.0')
 from gi.repository import Gdk, GLib, Gtk
 
 from salat_widget.constants import APP_NAME
-from salat_widget.core.calculator import find_active_prayer, format_countdown, parse_prayer_entries
+from salat_widget.core.calculator import (
+    check_jumaa_reminder,
+    find_active_prayer,
+    format_countdown,
+    parse_prayer_entries,
+)
 from salat_widget.models import ActivePrayer, PrayerEntry, UserConfig
 from salat_widget.services.audio_service import AudioService
 from salat_widget.services.config_service import ConfigService
@@ -27,12 +32,15 @@ class PillWindow(Gtk.Window):
         prayer_service: PrayerService,
         audio_service: AudioService,
         system_service: SystemService,
+        simulate: Optional[str] = None,
     ) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.config_service = config_service
         self.prayer_service = prayer_service
         self.audio_service = audio_service
         self.system_service = system_service
+        self.simulate = simulate
+        self._sim_start = datetime.datetime.now()
 
         self.day_data: Optional[Dict[str, str]] = None
         self.entries: List[PrayerEntry] = []
@@ -74,9 +82,13 @@ class PillWindow(Gtk.Window):
         event_box.add(self.pill)
         self.add(event_box)
 
-        pixbuf = load_mosque_icon(16)
-        if pixbuf:
-            self.pill.pack_start(Gtk.Image.new_from_pixbuf(pixbuf), False, False, 0)
+        self._icon_green = load_mosque_icon(16, red=False)
+        self._icon_red = load_mosque_icon(16, red=True)
+        self._is_red_icon = False
+        self.icon_widget = Gtk.Image()
+        if self._icon_green:
+            self.icon_widget.set_from_pixbuf(self._icon_green)
+            self.pill.pack_start(self.icon_widget, False, False, 0)
 
         self.name_lbl = Gtk.Label(label='Salat')
         self.name_lbl.get_style_context().add_class('salat-pill-name')
@@ -206,22 +218,78 @@ class PillWindow(Gtk.Window):
             self.time_lbl.set_text('--:--')
         return False
 
+    def _set_icon_red(self, is_red: bool) -> None:
+        if is_red == self._is_red_icon:
+            return
+        self._is_red_icon = is_red
+        pixbuf = self._icon_red if is_red else self._icon_green
+        if pixbuf:
+            self.icon_widget.set_from_pixbuf(pixbuf)
+
+    def _build_simulated_state(self, now: datetime.datetime) -> Optional[tuple]:
+        elapsed = (now - self._sim_start).total_seconds()
+        if self.simulate == 'adhan':
+            adhan_dt = self._sim_start + datetime.timedelta(seconds=3)
+            iqama_dt = adhan_dt + datetime.timedelta(seconds=15)
+            entry = PrayerEntry('Dhuhr', 'Dhuhr (Test)', adhan_dt.strftime('%H:%M'), 1, adhan_dt, iqama_dt)
+            phase = 'NEXT_ADHAN' if now < adhan_dt else ('IQAMA' if now < iqama_dt else 'NEXT_ADHAN')
+            if now >= iqama_dt:
+                entry = PrayerEntry('Asr', 'Asr (Test)', (now + datetime.timedelta(hours=2)).strftime('%H:%M'), 12, now + datetime.timedelta(hours=2), now + datetime.timedelta(hours=2, minutes=12))
+            return ([entry], ActivePrayer(phase=phase, prayer=entry), now)
+        if self.simulate == 'iqama':
+            adhan_dt = self._sim_start - datetime.timedelta(seconds=60)
+            iqama_dt = self._sim_start + datetime.timedelta(seconds=10)
+            entry = PrayerEntry('Maghrib', 'Maghrib (Test)', adhan_dt.strftime('%H:%M'), 7, adhan_dt, iqama_dt)
+            if now < iqama_dt:
+                return ([entry], ActivePrayer(phase='IQAMA', prayer=entry), now)
+            next_entry = PrayerEntry('Ishae', 'Isha (Test)', (now + datetime.timedelta(hours=1)).strftime('%H:%M'), 12, now + datetime.timedelta(hours=1), now + datetime.timedelta(hours=1, minutes=12))
+            return ([entry, next_entry], ActivePrayer(phase='NEXT_ADHAN', prayer=next_entry), now)
+        if self.simulate == 'jumaa':
+            # Simulate a Friday 30 minutes before Jumu'ah
+            days_until_fri = (4 - now.weekday()) % 7
+            sim_now = (now + datetime.timedelta(days=days_until_fri)).replace(hour=12, minute=0, second=0, microsecond=0) + datetime.timedelta(seconds=elapsed)
+            dhuhr_dt = sim_now.replace(hour=12, minute=30, second=0, microsecond=0)
+            iqama_dt = dhuhr_dt + datetime.timedelta(minutes=12)
+            entry = PrayerEntry('Dhuhr', "Jumu'ah", '12:30', 12, dhuhr_dt, iqama_dt)
+            return ([entry], ActivePrayer(phase='NEXT_ADHAN', prayer=entry), sim_now)
+        return None
+
     def _on_tick(self) -> bool:
         now = datetime.datetime.now()
         today = now.date()
-
-        if self.last_fetch_date and self.last_fetch_date != today:
-            self.triggered_events.clear()
-            self.refresh_data(force=False)
-
-        if not self.day_data:
-            return True
-
         cfg = self.config_service.config
-        self.entries = parse_prayer_entries(self.day_data, cfg.iqama_delays, now)
-        self.active = find_active_prayer(self.entries, cfg.iqama_delays, now)
+
+        if self.simulate:
+            sim = self._build_simulated_state(now)
+            if sim:
+                self.entries, self.active, now = sim
+                today = now.date()
+        else:
+            if self.last_fetch_date and self.last_fetch_date != today:
+                self.triggered_events.clear()
+                self.refresh_data(force=False)
+
+            if not self.day_data:
+                return True
+
+            self.entries = parse_prayer_entries(self.day_data, cfg.iqama_delays, now)
+            self.active = find_active_prayer(self.entries, cfg.iqama_delays, now)
+
         if not self.active:
             return True
+
+        # Jumu'ah (Friday) reminder check
+        if cfg.friday_reminder_enabled:
+            rem_min = check_jumaa_reminder(self.entries, now, cfg.friday_reminder_minutes)
+            if rem_min is not None:
+                jumaa_key = f'{today.isoformat()}-jumaa'
+                if jumaa_key not in self.triggered_events:
+                    self.triggered_events.add(jumaa_key)
+                    self.system_service.notify(
+                        "Jumu'ah Reminder",
+                        f"Jumu'ah prayer is in {rem_min} minutes. Prepare for Friday prayer.",
+                        enabled=cfg.notifications_enabled,
+                    )
 
         phase = self.active.phase
         prayer = self.active.prayer
@@ -229,6 +297,7 @@ class PillWindow(Gtk.Window):
 
         if phase == 'IQAMA':
             ctx.add_class('iqama-mode')
+            self._set_icon_red(True)
             diff = (prayer.iqama_dt - now).total_seconds()
             self.name_lbl.set_text(f'Iqama {prayer.name}')
             self.time_lbl.set_text(format_countdown(diff))
@@ -259,6 +328,7 @@ class PillWindow(Gtk.Window):
                     )
         else:
             ctx.remove_class('iqama-mode')
+            self._set_icon_red(False)
             diff = (prayer.adhan_dt - now).total_seconds()
             self.name_lbl.set_text(prayer.name)
             self.time_lbl.set_text(format_countdown(diff))

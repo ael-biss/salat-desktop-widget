@@ -25,6 +25,7 @@ def parse_prayer_entries(
         return []
 
     entries: List[PrayerEntry] = []
+    is_friday = now.weekday() == 4
     for key in PRAYER_ORDER:
         raw_time = day_data.get(key)
         if not raw_time or ':' not in raw_time:
@@ -34,10 +35,11 @@ def parse_prayer_entries(
         adhan_dt = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
         delay = int(iqama_delays.get(key, DEFAULT_IQAMA_DELAYS[key]))
         iqama_dt = adhan_dt + datetime.timedelta(minutes=delay)
+        display_name = "Jumu'ah" if (key == 'Dhuhr' and is_friday) else PRAYER_LABELS[key]
         entries.append(
             PrayerEntry(
                 key=key,
-                name=PRAYER_LABELS[key],
+                name=display_name,
                 time_str=f'{hour:02d}:{minute:02d}',
                 delay_minutes=delay,
                 adhan_dt=adhan_dt,
@@ -101,3 +103,20 @@ def calculate_progress(
         return min(1.0, max(0.04, elapsed / total))
     except Exception:
         return 0.3
+
+
+def check_jumaa_reminder(
+    entries: List[PrayerEntry],
+    now: datetime.datetime,
+    reminder_minutes: int,
+) -> Optional[int]:
+    """Return remaining minutes until Jumu'ah if within reminder window on Friday, else None."""
+    if now.weekday() != 4:
+        return None
+    dhuhr = next((e for e in entries if e.key == 'Dhuhr'), None)
+    if not dhuhr:
+        return None
+    diff_seconds = (dhuhr.adhan_dt - now).total_seconds()
+    if 0 < diff_seconds <= (reminder_minutes * 60):
+        return max(1, int((diff_seconds + 59) // 60))
+    return None

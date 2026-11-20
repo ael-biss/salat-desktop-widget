@@ -6,7 +6,7 @@
 AUTOSTART_DIR  := $(HOME)/.config/autostart
 AUTOSTART_FILE := $(AUTOSTART_DIR)/salat-desktop-widget.desktop
 
-.PHONY: all run stop autostart disable-autostart check help
+.PHONY: all run stop autostart disable-autostart check test sim-adhan sim-iqama sim-jumaa help
 
 all: run
 
@@ -32,10 +32,32 @@ check:
 	@python3 -m compileall -q run.py salat_widget
 	@echo "✔ Syntax check passed."
 
+test: check
+	@python3 -m unittest discover -s tests -v
+
+sim-adhan:
+	@pkill -f "salat-desktop-widget/[r]un.py" 2>/dev/null || true
+	@nohup python3 "$(CURDIR)/run.py" --simulate adhan >/dev/null 2>&1 </dev/null &
+	@echo "✔ Simulating Adhan -> Iqama (red icon + audio in 3 seconds)..."
+
+sim-iqama:
+	@pkill -f "salat-desktop-widget/[r]un.py" 2>/dev/null || true
+	@nohup python3 "$(CURDIR)/run.py" --simulate iqama >/dev/null 2>&1 </dev/null &
+	@echo "✔ Simulating Iqama mode (red icon + 10s countdown)..."
+
+sim-jumaa:
+	@pkill -f "salat-desktop-widget/[r]un.py" 2>/dev/null || true
+	@nohup python3 "$(CURDIR)/run.py" --simulate jumaa >/dev/null 2>&1 </dev/null &
+	@echo "✔ Simulating Jumu'ah Friday reminder..."
+
 help:
 	@echo "Available commands:"
 	@echo "  make run               - Start (or restart) the desktop widget"
 	@echo "  make stop              - Stop the running widget"
 	@echo "  make autostart         - Auto-start widget on login (~/.config/autostart)"
 	@echo "  make disable-autostart - Remove login autostart entry"
+	@echo "  make test              - Run automated unit tests"
+	@echo "  make sim-adhan         - Live test: Adhan notification + audio -> Red Iqama mode"
+	@echo "  make sim-iqama         - Live test: Red Iqama icon + countdown to 00:00"
+	@echo "  make sim-jumaa         - Live test: Friday Jumu'ah reminder"
 	@echo "  make check             - Verify Python syntax across all modules"

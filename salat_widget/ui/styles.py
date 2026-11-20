@@ -9,7 +9,7 @@ gi.require_version('Gdk', '3.0')
 gi.require_version('GdkPixbuf', '2.0')
 from gi.repository import Gdk, GdkPixbuf, Gtk
 
-from salat_widget.constants import DEFAULT_ICON_PATH
+from salat_widget.constants import DEFAULT_ICON_PATH, RED_ICON_PATH
 
 APP_CSS = b"""
 * {
@@ -40,14 +40,23 @@ window.salat-settings-window {
 }
 
 .salat-pill.iqama-mode {
-    background-color: #0b2920;
-    border: 1px solid #10b981;
+    background-color: #261014;
+    border: 1px solid #ef4444;
+}
+
+.salat-pill.iqama-mode:hover {
+    background-color: #32141a;
+    border-color: #f87171;
 }
 
 .salat-pill-name {
     font-weight: 700;
     font-size: 12.5px;
     color: #34d399;
+}
+
+.salat-pill.iqama-mode .salat-pill-name {
+    color: #f87171;
 }
 
 .salat-pill-sep {
@@ -136,8 +145,8 @@ window.salat-settings-window {
 }
 
 .salat-hero-card.iqama-mode {
-    background-color: #0d3025;
-    border-color: #10b981;
+    background-color: #2a1216;
+    border-color: #ef4444;
 }
 
 .salat-hero-badge {
@@ -145,6 +154,10 @@ window.salat-settings-window {
     font-weight: 700;
     letter-spacing: 0.8px;
     color: #34d399;
+}
+
+.salat-hero-card.iqama-mode .salat-hero-badge {
+    color: #f87171;
 }
 
 .salat-hero-name {
@@ -160,6 +173,10 @@ window.salat-settings-window {
     color: #34d399;
 }
 
+.salat-hero-card.iqama-mode .salat-hero-countdown {
+    color: #f87171;
+}
+
 progressbar.salat-progress trough {
     background-color: #1a2c29;
     border: none;
@@ -172,6 +189,14 @@ progressbar.salat-progress progress {
     border: none;
     border-radius: 999px;
     min-height: 5px;
+}
+
+.salat-hero-card.iqama-mode progressbar.salat-progress trough {
+    background-color: #3b181e;
+}
+
+.salat-hero-card.iqama-mode progressbar.salat-progress progress {
+    background-color: #ef4444;
 }
 
 /* Prayer Table */
@@ -192,6 +217,11 @@ progressbar.salat-progress progress {
     border: 1px solid #1e5946;
 }
 
+.salat-row-active.iqama-mode {
+    background-color: #2c1317;
+    border: 1px solid #dc2626;
+}
+
 .salat-row-name {
     font-weight: 600;
     font-size: 13px;
@@ -201,6 +231,10 @@ progressbar.salat-progress progress {
 .salat-row-active .salat-row-name {
     color: #34d399;
     font-weight: 700;
+}
+
+.salat-row-active.iqama-mode .salat-row-name {
+    color: #f87171;
 }
 
 .salat-row-time {
@@ -223,6 +257,11 @@ progressbar.salat-progress progress {
 .salat-row-active .salat-iqama-pill {
     background-color: #10b981;
     color: #062118;
+}
+
+.salat-row-active.iqama-mode .salat-iqama-pill {
+    background-color: #ef4444;
+    color: #ffffff;
 }
 
 /* Inputs & Switches */
@@ -352,10 +391,11 @@ def enable_rgba(window: Gtk.Window) -> None:
         window.set_visual(visual)
 
 
-def load_mosque_icon(size: int) -> Optional[GdkPixbuf.Pixbuf]:
-    if os.path.exists(DEFAULT_ICON_PATH):
+def load_mosque_icon(size: int, red: bool = False) -> Optional[GdkPixbuf.Pixbuf]:
+    path = RED_ICON_PATH if red else DEFAULT_ICON_PATH
+    if os.path.exists(path):
         try:
-            return GdkPixbuf.Pixbuf.new_from_file_at_scale(DEFAULT_ICON_PATH, size, size, True)
+            return GdkPixbuf.Pixbuf.new_from_file_at_scale(path, size, size, True)
         except Exception:
             pass
     return None

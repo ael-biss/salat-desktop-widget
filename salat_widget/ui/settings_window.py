@@ -8,7 +8,13 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 from gi.repository import Gdk, Gtk
 
-from salat_widget.constants import CITY_NAME, DEFAULT_IQAMA_DELAYS, PRAYER_LABELS, PRAYER_ORDER
+from salat_widget.constants import (
+    CITY_NAME,
+    DEFAULT_FRIDAY_REMINDER_MINUTES,
+    DEFAULT_IQAMA_DELAYS,
+    PRAYER_LABELS,
+    PRAYER_ORDER,
+)
 from salat_widget.services.audio_service import AudioService
 from salat_widget.services.config_service import ConfigService
 from salat_widget.ui.styles import load_mosque_icon
@@ -65,7 +71,10 @@ class SettingsWindow(Gtk.Window):
         # Section 1: Iqama Delays
         root.pack_start(self._build_iqama_section(), False, False, 0)
 
-        # Section 2: Audio & Notifications
+        # Section 2: Jumu'ah Reminder
+        root.pack_start(self._build_jumaa_section(), False, False, 0)
+
+        # Section 3: Audio & Notifications
         root.pack_start(self._build_audio_section(), False, False, 0)
 
         # Section 3: Auto-Lock
@@ -108,6 +117,46 @@ class SettingsWindow(Gtk.Window):
             row.pack_end(unit_lbl, False, False, 0)
             row.pack_end(spin, False, False, 4)
             box.pack_start(row, False, False, 0)
+
+        return box
+
+    def _build_jumaa_section(self) -> Gtk.Widget:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.get_style_context().add_class('salat-section')
+
+        title = Gtk.Label(label="JUMU'AH (FRIDAY) REMINDER", xalign=0)
+        title.get_style_context().add_class('salat-section-title')
+        box.pack_start(title, False, False, 0)
+
+        toggle_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        toggle_lbl = Gtk.Label(label="Remind before Jumu'ah prayer", xalign=0)
+        toggle_lbl.get_style_context().add_class('salat-field-label')
+        self.jumaa_switch = Gtk.Switch()
+        self.jumaa_switch.connect('notify::active', self._on_jumaa_toggled)
+        toggle_row.pack_start(toggle_lbl, True, True, 0)
+        toggle_row.pack_end(self.jumaa_switch, False, False, 0)
+        box.pack_start(toggle_row, False, False, 0)
+
+        min_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        min_lbl = Gtk.Label(label='Minutes before Adhan', xalign=0)
+        min_lbl.get_style_context().add_class('salat-hint')
+        adj = Gtk.Adjustment(
+            value=DEFAULT_FRIDAY_REMINDER_MINUTES,
+            lower=5,
+            upper=240,
+            step_increment=5,
+            page_increment=15,
+        )
+        self.jumaa_spin = Gtk.SpinButton(adjustment=adj, numeric=True)
+        self.jumaa_spin.set_width_chars(3)
+        self.jumaa_spin.connect('value-changed', self._on_jumaa_minutes_changed)
+        unit_lbl = Gtk.Label(label='min', xalign=0)
+        unit_lbl.get_style_context().add_class('salat-hint')
+
+        min_row.pack_start(min_lbl, True, True, 0)
+        min_row.pack_end(unit_lbl, False, False, 0)
+        min_row.pack_end(self.jumaa_spin, False, False, 4)
+        box.pack_start(min_row, False, False, 0)
 
         return box
 
@@ -223,6 +272,9 @@ class SettingsWindow(Gtk.Window):
         for key, spin in self._spin_buttons.items():
             spin.set_value(cfg.iqama_delays.get(key, DEFAULT_IQAMA_DELAYS[key]))
         self.notif_switch.set_active(cfg.notifications_enabled)
+        self.jumaa_switch.set_active(cfg.friday_reminder_enabled)
+        self.jumaa_spin.set_value(cfg.friday_reminder_minutes)
+        self.jumaa_spin.set_sensitive(cfg.friday_reminder_enabled)
         self.audio_switch.set_active(cfg.audio_enabled)
         self.lock_switch.set_active(cfg.lock_enabled)
         self.lock_entry.set_text(cfg.custom_lock_command or 'ft_lock')
@@ -253,6 +305,20 @@ class SettingsWindow(Gtk.Window):
         if self._suppress_signals:
             return
         self.config_service.config.notifications_enabled = switch.get_active()
+        self.config_service.save()
+
+    def _on_jumaa_toggled(self, switch: Gtk.Switch, _pspec) -> None:
+        if self._suppress_signals:
+            return
+        enabled = switch.get_active()
+        self.config_service.config.friday_reminder_enabled = enabled
+        self.jumaa_spin.set_sensitive(enabled)
+        self.config_service.save()
+
+    def _on_jumaa_minutes_changed(self, spin: Gtk.SpinButton) -> None:
+        if self._suppress_signals:
+            return
+        self.config_service.config.friday_reminder_minutes = int(spin.get_value())
         self.config_service.save()
 
     def _on_audio_toggled(self, switch: Gtk.Switch, _pspec) -> None:

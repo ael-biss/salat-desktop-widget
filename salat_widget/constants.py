@@ -10,6 +10,7 @@ PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.path.dirname(PACKAGE_DIR)
 ASSETS_DIR = os.path.join(REPO_DIR, 'assets')
 DEFAULT_ICON_PATH = os.path.join(ASSETS_DIR, 'mosque.svg')
+RED_ICON_PATH = os.path.join(ASSETS_DIR, 'mosque_red.svg')
 DEFAULT_ADHAN_PATH = os.path.join(ASSETS_DIR, 'adan.mp3')
 
 CONFIG_DIR = os.path.expanduser('~/.config/salat-widget')
@@ -36,4 +37,5 @@ DEFAULT_IQAMA_DELAYS = {
     'Ishae': 12,
 }
 
+DEFAULT_FRIDAY_REMINDER_MINUTES = 60
 CACHE_TTL_SECONDS = 12 * 3600  # 12 hours

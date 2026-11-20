@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Entrypoint for the Sala Al Jadida Salat Desktop Widget."""
 
+import argparse
 import signal
 
 import gi
@@ -15,7 +16,19 @@ from salat_widget.ui.pill_window import PillWindow
 from salat_widget.ui.styles import install_css
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='Sala Al Jadida Salat Desktop Widget')
+    parser.add_argument(
+        '--simulate',
+        choices=['adhan', 'iqama', 'jumaa'],
+        default=None,
+        help='Run a live visual/audio simulation for adhan, iqama (red icon), or jumaa reminder',
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     install_css()
 
@@ -29,6 +42,7 @@ def main() -> None:
         prayer_service=prayer_service,
         audio_service=audio_service,
         system_service=system_service,
+        simulate=args.simulate,
     )
     Gtk.main()
 

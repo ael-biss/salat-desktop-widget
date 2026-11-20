@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import datetime
 from typing import Dict, Optional
 
-from salat_widget.constants import DEFAULT_IQAMA_DELAYS
+from salat_widget.constants import DEFAULT_FRIDAY_REMINDER_MINUTES, DEFAULT_IQAMA_DELAYS
 
 
 @dataclass
@@ -13,6 +13,8 @@ class UserConfig:
     audio_enabled: bool = True
     adhan_audio_path: str = ''
     notifications_enabled: bool = True
+    friday_reminder_enabled: bool = True
+    friday_reminder_minutes: int = DEFAULT_FRIDAY_REMINDER_MINUTES
     lock_enabled: bool = False
     custom_lock_command: str = 'ft_lock'
     widget_x: Optional[int] = None
@@ -24,6 +26,8 @@ class UserConfig:
             'audioEnabled': self.audio_enabled,
             'adhanAudioPath': self.adhan_audio_path,
             'notificationsEnabled': self.notifications_enabled,
+            'fridayReminderEnabled': self.friday_reminder_enabled,
+            'fridayReminderMinutes': self.friday_reminder_minutes,
             'lockEnabled': self.lock_enabled,
             'customLockCommand': self.custom_lock_command,
             'widgetX': self.widget_x,
@@ -43,6 +47,13 @@ class UserConfig:
                 except (TypeError, ValueError):
                     pass
 
+        try:
+            fri_min = int(data.get('fridayReminderMinutes', DEFAULT_FRIDAY_REMINDER_MINUTES))
+            if not (5 <= fri_min <= 240):
+                fri_min = DEFAULT_FRIDAY_REMINDER_MINUTES
+        except (TypeError, ValueError):
+            fri_min = DEFAULT_FRIDAY_REMINDER_MINUTES
+
         wx = data.get('widgetX')
         wy = data.get('widgetY')
         return cls(
@@ -50,6 +61,8 @@ class UserConfig:
             audio_enabled=bool(data.get('audioEnabled', True)),
             adhan_audio_path=str(data.get('adhanAudioPath', '') or ''),
             notifications_enabled=bool(data.get('notificationsEnabled', True)),
+            friday_reminder_enabled=bool(data.get('fridayReminderEnabled', True)),
+            friday_reminder_minutes=fri_min,
             lock_enabled=bool(data.get('lockEnabled', False)),
             custom_lock_command=str(data.get('customLockCommand', 'ft_lock') or 'ft_lock'),
             widget_x=wx if isinstance(wx, int) else None,
