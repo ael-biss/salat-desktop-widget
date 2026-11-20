@@ -1,6 +1,6 @@
 # Salat Desktop Widget (Sala Al Jadida)
 
-A clean, modular, standalone always-on-top desktop widget for **Sala Al Jadida** prayer times, Iqama countdowns, and Jumu'ah reminders.  
+A clean, modular, standalone always-on-top desktop widget for **Sala Al Jadida** prayer times, Iqama countdowns, and Jumu'ah reminders.
 Runs completely in user space — **no `sudo`, no GNOME Shell extension, and no source code required for end users**.
 
 ## 1-Line Install (End Users)
@@ -10,6 +10,17 @@ curl -fsSL https://raw.githubusercontent.com/ael-biss/salat-desktop-widget/main/
 ```
 
 This downloads the compiled single-file bundle to `~/.local/bin/salat-widget`, enables login autostart in `~/.config/autostart/salat-desktop-widget.desktop`, and launches the widget.
+
+## Screenshots
+
+### Floating Desktop Pill
+![Floating Desktop Pill](assets/widget_image.png)
+
+### Prayer Schedule Popup
+![Prayer Schedule Popup](assets/window_display.png)
+
+### Full Monthly Schedule
+![Full Monthly Schedule](assets/monthly_schedule.png)
 
 ## Features
 - **Always-on-top floating pill**: Pinned across all workspaces (hidden from taskbar/Alt-Tab), defaults to top-left, draggable anywhere.
@@ -45,4 +56,3 @@ make sim-jumaa  # Simulate Friday Jumu'ah reminder
    ```
 3. GitHub Actions automatically builds `salat-widget.pyz` and publishes the release. All installed users are notified and can update in one click from **Settings → Check for Updates → Install**.
 
-And whenever you want to push an update to all users in the future, just bump `__version__` in `salat_widget/__init__.py`, commit, and push a new tag (e.g., `git tag v1.0.1 && git push origin main --tags`).

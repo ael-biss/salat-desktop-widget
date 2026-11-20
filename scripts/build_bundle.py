@@ -43,8 +43,12 @@ def build() -> None:
             optimize=2,
         )
 
-        # Copy assets
-        shutil.copytree(os.path.join(REPO_DIR, 'assets'), os.path.join(stage_dir, 'assets'))
+        # Copy only runtime assets (exclude README screenshots)
+        runtime_assets = ('mosque.svg', 'mosque_red.svg', 'adan.mp3')
+        out_assets = os.path.join(stage_dir, 'assets')
+        os.makedirs(out_assets, exist_ok=True)
+        for asset_name in runtime_assets:
+            shutil.copy2(os.path.join(REPO_DIR, 'assets', asset_name), os.path.join(out_assets, asset_name))
 
         # Pack into executable .pyz with #!/usr/bin/env python3 shebang
         with open(OUT_FILE, 'wb') as out_f:
