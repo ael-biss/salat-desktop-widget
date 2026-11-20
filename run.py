@@ -54,7 +54,7 @@ class SalatApp:
         old = self.pill
         if old is not None:
             old.cleanup()
-        self._spawn_pill(open_settings=True)
+        self._spawn_pill(open_settings=False)
 
 
 def main() -> None:
