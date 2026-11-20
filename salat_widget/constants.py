@@ -7,10 +7,11 @@ APP_NAME = 'Salat Desktop Widget'
 CITY_NAME = 'Sala Al Jadida'
 API_MONTH_URL = 'https://small-morning-6206.abdo-bissari.workers.dev/api/sala-al-jadida/month.json'
 
-# Point this to your GitHub Releases API endpoint or a hosted version.json:
-#   GitHub:     "https://api.github.com/repos/<owner>/<repo>/releases/latest"
-#   Cloudflare: "https://your-worker.workers.dev/salat-widget/version.json"
-UPDATE_MANIFEST_URL = os.environ.get('SALAT_UPDATE_URL', '')
+# GitHub Releases API endpoint for automatic update checks
+UPDATE_MANIFEST_URL = os.environ.get(
+    'SALAT_UPDATE_URL',
+    'https://api.github.com/repos/ael-biss/salat-desktop-widget/releases/latest',
+)
 
 PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.path.dirname(PACKAGE_DIR)

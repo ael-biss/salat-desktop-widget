@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Zero-sudo, zero-source-code installer for Salat Desktop Widget.
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/<OWNER>/<REPO>/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/ael-biss/salat-desktop-widget/main/install.sh | bash
 # Or override the release download URL:
 #   SALAT_BUNDLE_URL="https://..." bash install.sh
 
 set -euo pipefail
 
-BUNDLE_URL="${SALAT_BUNDLE_URL:-https://github.com/OWNER/salat-desktop-widget/releases/latest/download/salat-widget.pyz}"
+BUNDLE_URL="${SALAT_BUNDLE_URL:-https://github.com/ael-biss/salat-desktop-widget/releases/latest/download/salat-widget.pyz}"
 BIN_DIR="$HOME/.local/bin"
 BIN_PATH="$BIN_DIR/salat-widget"
 AUTOSTART_DIR="$HOME/.config/autostart"
