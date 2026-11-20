@@ -6,8 +6,9 @@ from typing import Callable, Dict
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
-from gi.repository import Gdk, Gtk
+from gi.repository import Gdk, GLib, Gtk
 
+from salat_widget import __version__
 from salat_widget.constants import (
     CITY_NAME,
     DEFAULT_FRIDAY_REMINDER_MINUTES,
@@ -17,6 +18,7 @@ from salat_widget.constants import (
 )
 from salat_widget.services.audio_service import AudioService
 from salat_widget.services.config_service import ConfigService
+from salat_widget.services.update_service import UpdateService
 from salat_widget.ui.styles import load_mosque_icon
 
 
@@ -25,16 +27,19 @@ class SettingsWindow(Gtk.Window):
         self,
         config_service: ConfigService,
         audio_service: AudioService,
+        update_service: UpdateService,
         on_reset_position: Callable[[], None],
         on_refresh_schedule: Callable[[], None],
     ) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.config_service = config_service
         self.audio_service = audio_service
+        self.update_service = update_service
         self.on_reset_position = on_reset_position
         self.on_refresh_schedule = on_refresh_schedule
         self._spin_buttons: Dict[str, Gtk.SpinButton] = {}
         self._draft_audio_path: str = ''
+        self._pending_update_url: str = ''
 
         self.set_title('Salat Widget Settings')
         self.set_default_size(468, 600)
@@ -250,8 +255,9 @@ class SettingsWindow(Gtk.Window):
         return box
 
     def _build_tools_section(self) -> Gtk.Widget:
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
 
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         refresh_btn = Gtk.Button(label='Refresh Schedule')
         refresh_btn.get_style_context().add_class('salat-btn')
         refresh_btn.connect('clicked', lambda *_: self.on_refresh_schedule())
@@ -260,9 +266,61 @@ class SettingsWindow(Gtk.Window):
         reset_pos_btn.get_style_context().add_class('salat-btn')
         reset_pos_btn.connect('clicked', lambda *_: self.on_reset_position())
 
-        box.pack_start(refresh_btn, True, True, 0)
-        box.pack_start(reset_pos_btn, True, True, 0)
-        return box
+        row.pack_start(refresh_btn, True, True, 0)
+        row.pack_start(reset_pos_btn, True, True, 0)
+        outer.pack_start(row, False, False, 0)
+
+        # Updates card
+        upd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        upd_box.get_style_context().add_class('salat-section')
+        self.update_status_lbl = Gtk.Label(label=f'Version v{__version__}', xalign=0)
+        self.update_status_lbl.get_style_context().add_class('salat-hint')
+        self.update_btn = Gtk.Button(label='Check for Updates')
+        self.update_btn.get_style_context().add_class('salat-btn')
+        self.update_btn.connect('clicked', self._on_update_clicked)
+        upd_box.pack_start(self.update_status_lbl, True, True, 0)
+        upd_box.pack_end(self.update_btn, False, False, 0)
+        outer.pack_start(upd_box, False, False, 0)
+
+        return outer
+
+    def _on_update_clicked(self, _btn: Gtk.Button) -> None:
+        if self._pending_update_url:
+            self.update_btn.set_sensitive(False)
+            self.update_status_lbl.set_text('Downloading update...')
+            self.update_service.download_and_apply_async(
+                self._pending_update_url,
+                lambda ok, msg: GLib.idle_add(self._on_update_applied, ok, msg),
+            )
+            return
+
+        self.update_btn.set_sensitive(False)
+        self.update_status_lbl.set_text('Checking for updates...')
+        self.update_service.check_async(
+            lambda ver, url, err: GLib.idle_add(self._on_update_checked, ver, url, err)
+        )
+
+    def _on_update_checked(self, version, url, error) -> bool:
+        self.update_btn.set_sensitive(True)
+        if error:
+            self.update_status_lbl.set_text(f'v{__version__} • {error}')
+        elif version and url:
+            self._pending_update_url = url
+            self.update_status_lbl.set_text(f'Update available: {version}')
+            self.update_btn.set_label(f'Install {version}')
+            self.update_btn.get_style_context().add_class('salat-btn-primary')
+        else:
+            self.update_status_lbl.set_text(f'v{__version__} • Up to date')
+        return False
+
+    def _on_update_applied(self, ok: bool, msg: str) -> bool:
+        if ok:
+            self.update_status_lbl.set_text('Updated! Restarting...')
+            GLib.timeout_add(400, self.update_service.restart_installed)
+        else:
+            self.update_btn.set_sensitive(True)
+            self.update_status_lbl.set_text(f'Update failed: {msg}')
+        return False
 
     def _sync_from_config(self) -> None:
         cfg = self.config_service.config

@@ -12,6 +12,7 @@ from salat_widget.services.audio_service import AudioService
 from salat_widget.services.config_service import ConfigService
 from salat_widget.services.prayer_service import PrayerService
 from salat_widget.services.system_service import SystemService
+from salat_widget.services.update_service import UpdateService
 from salat_widget.ui.pill_window import PillWindow
 from salat_widget.ui.styles import install_css
 
@@ -36,12 +37,14 @@ def main() -> None:
     prayer_service = PrayerService()
     audio_service = AudioService()
     system_service = SystemService()
+    update_service = UpdateService()
 
     PillWindow(
         config_service=config_service,
         prayer_service=prayer_service,
         audio_service=audio_service,
         system_service=system_service,
+        update_service=update_service,
         simulate=args.simulate,
     )
     Gtk.main()

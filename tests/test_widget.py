@@ -13,6 +13,7 @@ from salat_widget.core.calculator import (
     parse_prayer_entries,
 )
 from salat_widget.models import UserConfig
+from salat_widget.services.update_service import is_newer_version, parse_semver
 
 SAMPLE_DAY = {
     'Fajr': '05:08',
@@ -113,6 +114,13 @@ class TestSalatWidget(unittest.TestCase):
         self.assertEqual(restored.friday_reminder_minutes, 45)
         self.assertTrue(restored.lock_enabled)
         self.assertEqual(restored.custom_lock_command, 'ft_lock')
+
+    def test_update_semver_comparison(self):
+        self.assertEqual(parse_semver('v1.2.3'), (1, 2, 3))
+        self.assertTrue(is_newer_version('v1.0.1', '1.0.0'))
+        self.assertTrue(is_newer_version('2.0.0', '1.9.9'))
+        self.assertFalse(is_newer_version('1.0.0', '1.0.0'))
+        self.assertFalse(is_newer_version('0.9.9', '1.0.0'))
 
 
 if __name__ == '__main__':

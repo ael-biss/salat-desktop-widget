@@ -20,6 +20,7 @@ from salat_widget.services.audio_service import AudioService
 from salat_widget.services.config_service import ConfigService
 from salat_widget.services.prayer_service import PrayerService
 from salat_widget.services.system_service import SystemService
+from salat_widget.services.update_service import UpdateService
 from salat_widget.ui.popup_window import PopupWindow
 from salat_widget.ui.schedule_window import ScheduleWindow
 from salat_widget.ui.settings_window import SettingsWindow
@@ -33,6 +34,7 @@ class PillWindow(Gtk.Window):
         prayer_service: PrayerService,
         audio_service: AudioService,
         system_service: SystemService,
+        update_service: Optional[UpdateService] = None,
         simulate: Optional[str] = None,
     ) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
@@ -40,6 +42,7 @@ class PillWindow(Gtk.Window):
         self.prayer_service = prayer_service
         self.audio_service = audio_service
         self.system_service = system_service
+        self.update_service = update_service or UpdateService()
         self.simulate = simulate
         self._sim_start = datetime.datetime.now()
 
@@ -106,6 +109,7 @@ class PillWindow(Gtk.Window):
         self.settings_win = SettingsWindow(
             config_service=self.config_service,
             audio_service=self.audio_service,
+            update_service=self.update_service,
             on_reset_position=self.reset_position,
             on_refresh_schedule=lambda: self.refresh_data(force=True),
         )
@@ -124,6 +128,23 @@ class PillWindow(Gtk.Window):
 
         self.refresh_data(force=False)
         GLib.timeout_add_seconds(1, self._on_tick)
+
+        if self.update_service.is_configured and not self.simulate:
+            self.update_service.check_async(self._on_startup_update_check)
+
+    def _on_startup_update_check(
+        self,
+        remote_version: Optional[str],
+        _download_url: Optional[str],
+        _error: Optional[str],
+    ) -> None:
+        if remote_version:
+            GLib.idle_add(
+                self.system_service.notify,
+                'Salat Widget Update Available',
+                f'Version {remote_version} is available. Open Settings to update.',
+                self.config_service.config.notifications_enabled,
+            )
 
     def _on_config_changed(self, _cfg: UserConfig) -> None:
         self._on_tick()
@@ -158,8 +179,7 @@ class PillWindow(Gtk.Window):
         display = Gdk.Display.get_default()
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         geo = monitor.get_geometry()
-        width, _ = self.get_size()
-        x = geo.x + geo.width - max(width, 160) - 16
+        x = geo.x + 12
         y = geo.y + 32
         x, y = self._clamp_position(x, y)
         self.move(x, y)
