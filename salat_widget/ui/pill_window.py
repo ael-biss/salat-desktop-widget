@@ -1,9 +1,7 @@
 """Always-on-top draggable desktop pill widget and main controller."""
 
 import datetime
-import os
-import sys
-from typing import Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set
 
 import gi
 gi.require_version('Gtk', '3.0')
@@ -35,16 +33,18 @@ class PillWindow(Gtk.Window):
         audio_service: AudioService,
         system_service: SystemService,
         simulate: Optional[str] = None,
+        on_overlay_changed: Optional[Callable[[bool], None]] = None,
     ) -> None:
-        self._overlay_mode = bool(config_service.config.overlay_mode)
-        win_type = Gtk.WindowType.POPUP if self._overlay_mode else Gtk.WindowType.TOPLEVEL
+        win_type = Gtk.WindowType.POPUP if config_service.config.overlay_mode else Gtk.WindowType.TOPLEVEL
         super().__init__(type=win_type)
         self.config_service = config_service
         self.prayer_service = prayer_service
         self.audio_service = audio_service
         self.system_service = system_service
         self.simulate = simulate
+        self.on_overlay_changed = on_overlay_changed
         self._sim_start = datetime.datetime.now()
+        self._tick_source_id: Optional[int] = None
 
         self.day_data: Optional[Dict[str, str]] = None
         self.entries: List[PrayerEntry] = []
@@ -83,8 +83,8 @@ class PillWindow(Gtk.Window):
 
         self.pill = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.pill.get_style_context().add_class('salat-pill')
-        if self._overlay_mode:
-            self.pill.get_style_context().add_class('overlay-mode')
+        if self.config_service.config.overlay_mode:
+            self.pill.get_style_context().add_class('topbar-mode')
         event_box.add(self.pill)
         self.add(event_box)
 
@@ -113,7 +113,7 @@ class PillWindow(Gtk.Window):
             audio_service=self.audio_service,
             on_reset_position=self.reset_position,
             on_refresh_schedule=lambda: self.refresh_data(force=True),
-            on_restart_app=self._restart_app,
+            on_overlay_changed=self._handle_overlay_changed,
         )
         self.popup_win = PopupWindow(
             config_service=self.config_service,
@@ -127,7 +127,24 @@ class PillWindow(Gtk.Window):
         GLib.idle_add(self._apply_initial_position)
 
         self.refresh_data(force=False)
-        GLib.timeout_add_seconds(1, self._on_tick)
+        self._tick_source_id = GLib.timeout_add_seconds(1, self._on_tick)
+
+    def _handle_overlay_changed(self, enabled: bool) -> None:
+        # Reset Y coordinate cleanly when switching between top bar overlay and desktop mode
+        self.config_service.config.widget_x = None
+        self.config_service.config.widget_y = None
+        self.config_service.save(notify=False)
+        if self.on_overlay_changed:
+            self.on_overlay_changed(enabled)
+
+    def cleanup(self) -> None:
+        if self._tick_source_id is not None:
+            GLib.source_remove(self._tick_source_id)
+            self._tick_source_id = None
+        self.config_service.unsubscribe(self._on_config_changed)
+        self.popup_win.destroy()
+        self.settings_win.destroy()
+        self.destroy()
 
     def _on_config_changed(self, _cfg: UserConfig) -> None:
         self._on_tick()
@@ -142,19 +159,14 @@ class PillWindow(Gtk.Window):
             self.reset_position()
         return False
 
-    def _restart_app(self) -> None:
-        self.audio_service.stop()
-        os.execv(sys.executable, [sys.executable] + sys.argv)
-
     def reset_position(self) -> None:
         display = Gdk.Display.get_default()
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         geo = monitor.get_geometry()
         width, _ = self.get_size()
-        if self._overlay_mode:
-            # Place cleanly on the GNOME top bar between the center clock and right indicators
-            x = geo.x + int(geo.width * 0.62)
-            y = geo.y + 1
+        if self.config_service.config.overlay_mode:
+            x = geo.x + int(geo.width * 0.60)
+            y = geo.y + 2
         else:
             x = geo.x + geo.width - max(width, 160) - 16
             y = geo.y + 38

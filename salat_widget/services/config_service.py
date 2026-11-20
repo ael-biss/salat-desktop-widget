@@ -21,6 +21,10 @@ class ConfigService:
         if callback not in self._listeners:
             self._listeners.append(callback)
 
+    def unsubscribe(self, callback: Callable[[UserConfig], None]) -> None:
+        if callback in self._listeners:
+            self._listeners.remove(callback)
+
     def save(self, notify: bool = True) -> None:
         try:
             os.makedirs(CONFIG_DIR, mode=0o700, exist_ok=True)

@@ -3,10 +3,11 @@
 
 import argparse
 import signal
+from typing import Optional
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
+from gi.repository import GLib, Gtk
 
 from salat_widget.services.audio_service import AudioService
 from salat_widget.services.config_service import ConfigService
@@ -27,23 +28,41 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+class SalatApp:
+    def __init__(self, simulate: Optional[str] = None) -> None:
+        self.simulate = simulate
+        self.config_service = ConfigService()
+        self.prayer_service = PrayerService()
+        self.audio_service = AudioService()
+        self.system_service = SystemService()
+        self.pill: Optional[PillWindow] = None
+        self._spawn_pill(open_settings=False)
+
+    def _spawn_pill(self, open_settings: bool) -> None:
+        self.pill = PillWindow(
+            config_service=self.config_service,
+            prayer_service=self.prayer_service,
+            audio_service=self.audio_service,
+            system_service=self.system_service,
+            simulate=self.simulate,
+            on_overlay_changed=self._on_overlay_changed,
+        )
+        if open_settings:
+            GLib.idle_add(self.pill.settings_win.open_window)
+
+    def _on_overlay_changed(self, _enabled: bool) -> None:
+        old = self.pill
+        if old is not None:
+            old.cleanup()
+        self._spawn_pill(open_settings=True)
+
+
 def main() -> None:
     args = parse_args()
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     install_css()
 
-    config_service = ConfigService()
-    prayer_service = PrayerService()
-    audio_service = AudioService()
-    system_service = SystemService()
-
-    PillWindow(
-        config_service=config_service,
-        prayer_service=prayer_service,
-        audio_service=audio_service,
-        system_service=system_service,
-        simulate=args.simulate,
-    )
+    SalatApp(simulate=args.simulate)
     Gtk.main()
 
 
