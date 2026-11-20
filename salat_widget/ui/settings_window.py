@@ -27,14 +27,12 @@ class SettingsWindow(Gtk.Window):
         audio_service: AudioService,
         on_reset_position: Callable[[], None],
         on_refresh_schedule: Callable[[], None],
-        on_overlay_changed: Callable[[bool], None],
     ) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.config_service = config_service
         self.audio_service = audio_service
         self.on_reset_position = on_reset_position
         self.on_refresh_schedule = on_refresh_schedule
-        self.on_overlay_changed = on_overlay_changed
         self._spin_buttons: Dict[str, Gtk.SpinButton] = {}
         self._draft_audio_path: str = ''
 
@@ -79,7 +77,6 @@ class SettingsWindow(Gtk.Window):
         root.pack_start(self._build_jumaa_section(), False, False, 0)
         root.pack_start(self._build_audio_section(), False, False, 0)
         root.pack_start(self._build_lock_section(), False, False, 0)
-        root.pack_start(self._build_display_section(), False, False, 0)
         root.pack_start(self._build_tools_section(), False, False, 0)
 
         # Sticky Footer: Cancel / Save
@@ -252,32 +249,6 @@ class SettingsWindow(Gtk.Window):
 
         return box
 
-    def _build_display_section(self) -> Gtk.Widget:
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        box.get_style_context().add_class('salat-section')
-
-        title = Gtk.Label(label='DISPLAY & OVERVIEW', xalign=0)
-        title.get_style_context().add_class('salat-section-title')
-        box.pack_start(title, False, False, 0)
-
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        lbl = Gtk.Label(label='Stay visible in Activities Overview', xalign=0)
-        lbl.get_style_context().add_class('salat-field-label')
-        self.overlay_switch = Gtk.Switch()
-        row.pack_start(lbl, True, True, 0)
-        row.pack_end(self.overlay_switch, False, False, 0)
-        box.pack_start(row, False, False, 0)
-
-        hint = Gtk.Label(
-            label='Keeps the pill visible when pressing Super (Overview). Kept just below the top bar so clicks are never blocked by GNOME.',
-            xalign=0,
-        )
-        hint.set_line_wrap(True)
-        hint.get_style_context().add_class('salat-hint')
-        box.pack_start(hint, False, False, 0)
-
-        return box
-
     def _build_tools_section(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
 
@@ -304,7 +275,6 @@ class SettingsWindow(Gtk.Window):
         self.audio_switch.set_active(cfg.audio_enabled)
         self.lock_switch.set_active(cfg.lock_enabled)
         self.lock_entry.set_text(cfg.custom_lock_command or 'ft_lock')
-        self.overlay_switch.set_active(cfg.overlay_mode)
         self._draft_audio_path = cfg.adhan_audio_path or ''
         self._update_audio_label()
 
@@ -359,7 +329,6 @@ class SettingsWindow(Gtk.Window):
 
     def _on_save_clicked(self, _btn: Gtk.Button) -> None:
         cfg = self.config_service.config
-        prev_overlay = cfg.overlay_mode
 
         for key, spin in self._spin_buttons.items():
             cfg.iqama_delays[key] = int(spin.get_value())
@@ -371,16 +340,11 @@ class SettingsWindow(Gtk.Window):
         cfg.adhan_audio_path = self._draft_audio_path
         cfg.lock_enabled = self.lock_switch.get_active()
         cfg.custom_lock_command = self.lock_entry.get_text().strip() or 'ft_lock'
-        cfg.overlay_mode = self.overlay_switch.get_active()
 
-        overlay_changed = cfg.overlay_mode != prev_overlay
         self.audio_service.stop()
         self.test_audio_btn.set_label('Test Audio')
         self.hide()
-
-        self.config_service.save(notify=not overlay_changed)
-        if overlay_changed:
-            self.on_overlay_changed(cfg.overlay_mode)
+        self.config_service.save(notify=True)
 
     def _on_key_press(self, _widget, event) -> bool:
         if event.keyval == Gdk.KEY_Escape:

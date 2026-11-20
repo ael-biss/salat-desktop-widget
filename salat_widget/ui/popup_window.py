@@ -20,11 +20,13 @@ class PopupWindow(Gtk.Window):
         self,
         config_service: ConfigService,
         on_open_settings: Callable[[], None],
+        on_open_schedule: Callable[[], None],
         on_refresh: Callable[[], None],
     ) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.config_service = config_service
         self.on_open_settings = on_open_settings
+        self.on_open_schedule = on_open_schedule
         self.on_refresh = on_refresh
 
         self.get_style_context().add_class('salat-transparent')
@@ -97,6 +99,12 @@ class PopupWindow(Gtk.Window):
         self.table_box.get_style_context().add_class('salat-table-box')
         card.pack_start(self.table_box, False, False, 0)
 
+        # Full Schedule button
+        schedule_btn = Gtk.Button(label='View Full Monthly Schedule')
+        schedule_btn.get_style_context().add_class('salat-btn')
+        schedule_btn.connect('clicked', self._on_schedule_clicked)
+        card.pack_start(schedule_btn, False, False, 0)
+
         # Footer actions
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
 
@@ -127,6 +135,10 @@ class PopupWindow(Gtk.Window):
     def _on_settings_clicked(self, _btn: Gtk.Button) -> None:
         self.hide()
         self.on_open_settings()
+
+    def _on_schedule_clicked(self, _btn: Gtk.Button) -> None:
+        self.hide()
+        self.on_open_schedule()
 
     def update_hero(
         self,

@@ -59,6 +59,41 @@ class PrayerService:
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def get_monthly_schedule(self) -> Optional[dict]:
+        schedule = self._cache.get('monthly_schedule')
+        if isinstance(schedule, dict) and isinstance(schedule.get('days'), list):
+            return schedule
+        return None
+
+    def fetch_monthly_async(
+        self,
+        force: bool,
+        on_success: Callable[[dict], None],
+        on_error: Callable[[str], None],
+    ) -> None:
+        if not force:
+            cached = self.get_monthly_schedule()
+            if cached and not self.is_cache_stale():
+                on_success(cached)
+                return
+
+        def worker() -> None:
+            try:
+                self._fetch_month_sync(datetime.date.today())
+                schedule = self.get_monthly_schedule()
+                if schedule:
+                    on_success(schedule)
+                else:
+                    on_error('Failed to load monthly schedule.')
+            except Exception as exc:
+                fallback = self.get_monthly_schedule()
+                if fallback:
+                    on_success(fallback)
+                else:
+                    on_error(str(exc))
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _fetch_month_sync(self, today: datetime.date) -> Optional[Dict[str, str]]:
         req = urllib.request.Request(
             API_MONTH_URL,
@@ -86,6 +121,7 @@ class PrayerService:
                 'date': iso,
             }
 
+        self._cache['monthly_schedule'] = parsed
         self._cache['days'] = days_map
         self._cache['last_sync'] = time.time()
         self._save_cache()

@@ -34,12 +34,6 @@ window.salat-settings-window {
     color: #f8fafc;
 }
 
-.salat-pill.topbar-mode {
-    padding: 2px 11px;
-    border-radius: 999px;
-    background-color: #11161d;
-}
-
 .salat-pill:hover {
     background-color: #131b24;
     border-color: #10b981;
@@ -375,6 +369,57 @@ switch slider {
     background-color: #3b1820;
     border-color: #ef4444;
     color: #fca5a5;
+}
+
+/* Monthly Schedule Table */
+.salat-sched-header {
+    background-color: #141b24;
+    border-bottom: 1px solid #243040;
+    padding: 8px 10px;
+    border-radius: 10px 10px 0 0;
+}
+
+.salat-sched-th {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #34d399;
+}
+
+.salat-sched-row {
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+
+.salat-sched-row-alt {
+    background-color: #131a22;
+}
+
+.salat-sched-row-today {
+    background-color: #132b24;
+    border: 1px solid #10b981;
+}
+
+.salat-sched-cell {
+    font-size: 12.5px;
+    color: #e2e8f0;
+}
+
+.salat-sched-cell-mono {
+    font-family: "JetBrains Mono", "Ubuntu Mono", "DejaVu Sans Mono", monospace;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.salat-sched-row-past .salat-sched-cell,
+.salat-sched-row-past .salat-sched-cell-mono {
+    color: #64748b;
+}
+
+.salat-sched-row-today .salat-sched-cell,
+.salat-sched-row-today .salat-sched-cell-mono {
+    color: #34d399;
+    font-weight: 700;
 }
 """
 
