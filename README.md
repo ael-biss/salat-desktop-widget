@@ -44,3 +44,5 @@ make sim-jumaa  # Simulate Friday Jumu'ah reminder
    git push origin main --tags
    ```
 3. GitHub Actions automatically builds `salat-widget.pyz` and publishes the release. All installed users are notified and can update in one click from **Settings → Check for Updates → Install**.
+
+And whenever you want to push an update to all users in the future, just bump `__version__` in `salat_widget/__init__.py`, commit, and push a new tag (e.g., `git tag v1.0.1 && git push origin main --tags`).
