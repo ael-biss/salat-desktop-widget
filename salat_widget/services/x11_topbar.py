@@ -12,10 +12,14 @@ import ctypes.util
 import os
 from typing import Callable, Optional, Tuple
 
-import gi
-gi.require_version('GLib', '2.0')
-gi.require_version('Gio', '2.0')
-from gi.repository import Gio, GLib
+try:
+    import gi
+    gi.require_version('GLib', '2.0')
+    gi.require_version('Gio', '2.0')
+    from gi.repository import Gio, GLib
+except (ImportError, ValueError):
+    Gio = None
+    GLib = None
 
 # X11 & XInput2 constants (verified from /usr/include/X11/X.h, Xatom.h, XI2.h)
 GENERIC_EVENT = 35
@@ -231,7 +235,7 @@ class X11TopBarInputMonitor:
         self._atom_wm_state: int = 0
         self._atom_fullscreen: int = 0
 
-        self._dbus: Optional[Gio.DBusConnection] = None
+        self._dbus: Optional[object] = None
         self._dbus_sub_id: Optional[int] = None
         self._screensaver_active: bool = False
 
@@ -244,7 +248,7 @@ class X11TopBarInputMonitor:
         return self._screensaver_active
 
     def start(self) -> bool:
-        if not is_x11_session():
+        if GLib is None or not is_x11_session():
             return False
 
         libx11, libxi = _load_x11_libs()
@@ -311,6 +315,8 @@ class X11TopBarInputMonitor:
         return True
 
     def _setup_screensaver_watch(self) -> None:
+        if Gio is None:
+            return
         try:
             self._dbus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
             self._dbus_sub_id = self._dbus.signal_subscribe(
