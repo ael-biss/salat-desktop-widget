@@ -19,6 +19,8 @@ class UserConfig:
     custom_lock_command: str = 'ft_lock'
     widget_x: Optional[int] = None
     widget_y: Optional[int] = None
+    top_bar_mode: bool = True
+    top_bar_x: Optional[int] = None
 
     def to_dict(self) -> dict:
         return {
@@ -32,6 +34,8 @@ class UserConfig:
             'customLockCommand': self.custom_lock_command,
             'widgetX': self.widget_x,
             'widgetY': self.widget_y,
+            'topBarMode': self.top_bar_mode,
+            'topBarX': self.top_bar_x,
         }
 
     @classmethod
@@ -56,6 +60,7 @@ class UserConfig:
 
         wx = data.get('widgetX')
         wy = data.get('widgetY')
+        tbx = data.get('topBarX')
         return cls(
             iqama_delays=delays,
             audio_enabled=bool(data.get('audioEnabled', True)),
@@ -67,6 +72,8 @@ class UserConfig:
             custom_lock_command=str(data.get('customLockCommand', 'ft_lock') or 'ft_lock'),
             widget_x=wx if isinstance(wx, int) else None,
             widget_y=wy if isinstance(wy, int) else None,
+            top_bar_mode=bool(data.get('topBarMode', True)),
+            top_bar_x=tbx if isinstance(tbx, int) else None,
         )
 
 

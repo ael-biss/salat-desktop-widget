@@ -34,8 +34,22 @@ window.salat-settings-window {
     color: #f8fafc;
 }
 
-.salat-pill:hover {
+.salat-pill:hover,
+.salat-pill.salat-pill-hover {
     background-color: #131b24;
+    border-color: #10b981;
+}
+
+.salat-pill.top-bar-mode {
+    background-color: #141920;
+    border: 1px solid #1f3d33;
+    border-radius: 999px;
+    padding: 1px 10px;
+}
+
+.salat-pill.top-bar-mode:hover,
+.salat-pill.top-bar-mode.salat-pill-hover {
+    background-color: #1a2430;
     border-color: #10b981;
 }
 
@@ -44,7 +58,8 @@ window.salat-settings-window {
     border: 1px solid #ef4444;
 }
 
-.salat-pill.iqama-mode:hover {
+.salat-pill.iqama-mode:hover,
+.salat-pill.iqama-mode.salat-pill-hover {
     background-color: #32141a;
     border-color: #f87171;
 }
@@ -53,6 +68,10 @@ window.salat-settings-window {
     font-weight: 700;
     font-size: 12.5px;
     color: #34d399;
+}
+
+.salat-pill.top-bar-mode .salat-pill-name {
+    font-size: 11.5px;
 }
 
 .salat-pill.iqama-mode .salat-pill-name {
@@ -69,6 +88,10 @@ window.salat-settings-window {
     font-weight: 700;
     font-size: 12.5px;
     color: #f8fafc;
+}
+
+.salat-pill.top-bar-mode .salat-pill-time {
+    font-size: 11.5px;
 }
 
 /* Popup & Settings Surfaces */

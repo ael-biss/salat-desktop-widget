@@ -1,7 +1,7 @@
 """Dedicated Settings window for configuring Iqama times, Jumu'ah, audio, alerts, and lock."""
 
 import os
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 
 import gi
 gi.require_version('Gtk', '3.0')
@@ -30,6 +30,10 @@ class SettingsWindow(Gtk.Window):
         update_service: UpdateService,
         on_reset_position: Callable[[], None],
         on_refresh_schedule: Callable[[], None],
+        on_top_bar_mode_changed: Optional[Callable[[bool], None]] = None,
+        on_top_bar_preset: Optional[Callable[[str], None]] = None,
+        on_reload_app: Optional[Callable[[], None]] = None,
+        on_quit_app: Optional[Callable[[], None]] = None,
     ) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.config_service = config_service
@@ -37,6 +41,10 @@ class SettingsWindow(Gtk.Window):
         self.update_service = update_service
         self.on_reset_position = on_reset_position
         self.on_refresh_schedule = on_refresh_schedule
+        self.on_top_bar_mode_changed = on_top_bar_mode_changed
+        self.on_top_bar_preset = on_top_bar_preset
+        self.on_reload_app = on_reload_app
+        self.on_quit_app = on_quit_app
         self._spin_buttons: Dict[str, Gtk.SpinButton] = {}
         self._draft_audio_path: str = ''
         self._pending_update_url: str = ''
@@ -78,6 +86,7 @@ class SettingsWindow(Gtk.Window):
         root.pack_start(header, False, False, 0)
 
         # Sections
+        root.pack_start(self._build_display_section(), False, False, 0)
         root.pack_start(self._build_iqama_section(), False, False, 0)
         root.pack_start(self._build_jumaa_section(), False, False, 0)
         root.pack_start(self._build_audio_section(), False, False, 0)
@@ -101,6 +110,67 @@ class SettingsWindow(Gtk.Window):
         outer.pack_end(footer, False, False, 0)
 
         self._sync_from_config()
+
+    def _build_display_section(self) -> Gtk.Widget:
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.get_style_context().add_class('salat-section')
+
+        title = Gtk.Label(label='TOP BAR & POSITION', xalign=0)
+        title.get_style_context().add_class('salat-section-title')
+        box.pack_start(title, False, False, 0)
+
+        mode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        mode_lbl = Gtk.Label(label='Dock in GNOME Top Bar (X11)', xalign=0)
+        mode_lbl.get_style_context().add_class('salat-field-label')
+        self.top_bar_switch = Gtk.Switch()
+        self.top_bar_switch.connect('notify::active', self._on_top_bar_switch_toggled)
+        mode_row.pack_start(mode_lbl, True, True, 0)
+        mode_row.pack_end(self.top_bar_switch, False, False, 0)
+        box.pack_start(mode_row, False, False, 0)
+
+        hint = Gtk.Label(
+            label='Auto-hides on fullscreen & lock screen. Middle-drag or use presets below to move cleanly.',
+            xalign=0,
+        )
+        hint.set_line_wrap(True)
+        hint.set_max_width_chars(46)
+        hint.get_style_context().add_class('salat-hint')
+        box.pack_start(hint, False, False, 0)
+
+        self.preset_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        for label, preset in (
+            ('Left of Clock', 'left'),
+            ('Right of Clock', 'right'),
+            ('Far Right', 'far_right'),
+        ):
+            btn = Gtk.Button(label=label)
+            btn.get_style_context().add_class('salat-btn')
+            btn.connect('clicked', lambda _b, p=preset: self._on_preset_clicked(p))
+            self.preset_row.pack_start(btn, True, True, 0)
+        box.pack_start(self.preset_row, False, False, 0)
+
+        return box
+
+    def _on_top_bar_switch_toggled(self, sw: Gtk.Switch, _pspec) -> None:
+        self.preset_row.set_sensitive(sw.get_active())
+
+    def _on_preset_clicked(self, preset: str) -> None:
+        if self.on_top_bar_preset:
+            self.on_top_bar_preset(preset)
+
+    def _on_reload_clicked(self, _btn: Gtk.Button) -> None:
+        self.audio_service.stop()
+        self.hide()
+        if self.on_reload_app:
+            self.on_reload_app()
+
+    def _on_quit_clicked(self, _btn: Gtk.Button) -> None:
+        self.audio_service.stop()
+        self.hide()
+        if self.on_quit_app:
+            self.on_quit_app()
+        else:
+            Gtk.main_quit()
 
     def _build_iqama_section(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -258,6 +328,7 @@ class SettingsWindow(Gtk.Window):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
 
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        row.set_homogeneous(True)
         refresh_btn = Gtk.Button(label='Refresh Schedule')
         refresh_btn.get_style_context().add_class('salat-btn')
         refresh_btn.connect('clicked', lambda *_: self.on_refresh_schedule())
@@ -269,6 +340,21 @@ class SettingsWindow(Gtk.Window):
         row.pack_start(refresh_btn, True, True, 0)
         row.pack_start(reset_pos_btn, True, True, 0)
         outer.pack_start(row, False, False, 0)
+
+        app_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        app_row.set_homogeneous(True)
+        reload_btn = Gtk.Button(label='Reload App')
+        reload_btn.get_style_context().add_class('salat-btn')
+        reload_btn.connect('clicked', self._on_reload_clicked)
+
+        quit_btn = Gtk.Button(label='Quit App')
+        quit_btn.get_style_context().add_class('salat-btn')
+        quit_btn.get_style_context().add_class('salat-btn-danger')
+        quit_btn.connect('clicked', self._on_quit_clicked)
+
+        app_row.pack_start(reload_btn, True, True, 0)
+        app_row.pack_start(quit_btn, True, True, 0)
+        outer.pack_start(app_row, False, False, 0)
 
         # Updates card
         upd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -324,6 +410,8 @@ class SettingsWindow(Gtk.Window):
 
     def _sync_from_config(self) -> None:
         cfg = self.config_service.config
+        self.top_bar_switch.set_active(cfg.top_bar_mode)
+        self.preset_row.set_sensitive(cfg.top_bar_mode)
         for key, spin in self._spin_buttons.items():
             spin.set_value(cfg.iqama_delays.get(key, DEFAULT_IQAMA_DELAYS[key]))
         self.notif_switch.set_active(cfg.notifications_enabled)
@@ -387,10 +475,12 @@ class SettingsWindow(Gtk.Window):
 
     def _on_save_clicked(self, _btn: Gtk.Button) -> None:
         cfg = self.config_service.config
+        prev_top_bar_mode = cfg.top_bar_mode
 
         for key, spin in self._spin_buttons.items():
             cfg.iqama_delays[key] = int(spin.get_value())
 
+        cfg.top_bar_mode = self.top_bar_switch.get_active()
         cfg.notifications_enabled = self.notif_switch.get_active()
         cfg.friday_reminder_enabled = self.jumaa_switch.get_active()
         cfg.friday_reminder_minutes = int(self.jumaa_spin.get_value())
@@ -402,7 +492,12 @@ class SettingsWindow(Gtk.Window):
         self.audio_service.stop()
         self.test_audio_btn.set_label('Test Audio')
         self.hide()
-        self.config_service.save(notify=True)
+
+        if cfg.top_bar_mode != prev_top_bar_mode and self.on_top_bar_mode_changed:
+            self.config_service.save(notify=False)
+            GLib.idle_add(self.on_top_bar_mode_changed, cfg.top_bar_mode)
+        else:
+            self.config_service.save(notify=True)
 
     def _on_key_press(self, _widget, event) -> bool:
         if event.keyval == Gdk.KEY_Escape:

@@ -1,5 +1,6 @@
 """Automated tests for Salat Desktop Widget (Adhan, Iqama red state, Jumu'ah, Config)."""
 
+import ctypes
 import datetime
 import os
 import unittest
@@ -14,6 +15,15 @@ from salat_widget.core.calculator import (
 )
 from salat_widget.models import UserConfig
 from salat_widget.services.update_service import is_newer_version, parse_semver
+from salat_widget.services.x11_topbar import (
+    XI_RAW_BUTTON_PRESS,
+    XI_RAW_BUTTON_RELEASE,
+    XI_RAW_MOTION,
+    XEvent,
+    XGenericEventCookie,
+    XIRawEvent,
+    set_xi_mask,
+)
 
 SAMPLE_DAY = {
     'Fajr': '05:08',
@@ -121,6 +131,30 @@ class TestSalatWidget(unittest.TestCase):
         self.assertTrue(is_newer_version('2.0.0', '1.9.9'))
         self.assertFalse(is_newer_version('1.0.0', '1.0.0'))
         self.assertFalse(is_newer_version('0.9.9', '1.0.0'))
+
+    def test_config_roundtrip_top_bar_settings(self):
+        # Old config without topBarMode defaults cleanly to Top Bar Mode
+        legacy = UserConfig.from_dict({'widgetX': 12, 'widgetY': 32})
+        self.assertTrue(legacy.top_bar_mode)
+        self.assertIsNone(legacy.top_bar_x)
+
+        cfg = UserConfig(top_bar_mode=False, top_bar_x=1180)
+        restored = UserConfig.from_dict(cfg.to_dict())
+        self.assertFalse(restored.top_bar_mode)
+        self.assertEqual(restored.top_bar_x, 1180)
+
+    def test_x11_topbar_xi_mask_and_structs(self):
+        buf = (ctypes.c_ubyte * 4)()
+        set_xi_mask(buf, XI_RAW_BUTTON_PRESS)
+        set_xi_mask(buf, XI_RAW_BUTTON_RELEASE)
+        set_xi_mask(buf, XI_RAW_MOTION)
+        self.assertEqual(buf[0], 0x00)
+        self.assertEqual(buf[1], 0x80)  # bit 15
+        self.assertEqual(buf[2], 0x03)  # bits 16 & 17
+        self.assertEqual(buf[3], 0x00)
+        self.assertGreaterEqual(ctypes.sizeof(XEvent), 192)
+        self.assertGreater(ctypes.sizeof(XGenericEventCookie), 0)
+        self.assertGreater(ctypes.sizeof(XIRawEvent), 0)
 
 
 if __name__ == '__main__':

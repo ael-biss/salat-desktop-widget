@@ -22,12 +22,16 @@ class PopupWindow(Gtk.Window):
         on_open_settings: Callable[[], None],
         on_open_schedule: Callable[[], None],
         on_refresh: Callable[[], None],
+        on_reload: Optional[Callable[[], None]] = None,
+        on_quit: Optional[Callable[[], None]] = None,
     ) -> None:
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.config_service = config_service
         self.on_open_settings = on_open_settings
         self.on_open_schedule = on_open_schedule
         self.on_refresh = on_refresh
+        self.on_reload = on_reload
+        self.on_quit = on_quit
 
         self.get_style_context().add_class('salat-transparent')
         self.set_decorated(False)
@@ -105,8 +109,9 @@ class PopupWindow(Gtk.Window):
         schedule_btn.connect('clicked', self._on_schedule_clicked)
         card.pack_start(schedule_btn, False, False, 0)
 
-        # Footer actions
-        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        # Footer actions (2x2 clean grid: Settings / Refresh + Reload / Quit)
+        actions_top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        actions_top.set_homogeneous(True)
 
         settings_btn = Gtk.Button(label='Settings')
         settings_btn.get_style_context().add_class('salat-btn-primary')
@@ -116,15 +121,25 @@ class PopupWindow(Gtk.Window):
         refresh_btn.get_style_context().add_class('salat-btn')
         refresh_btn.connect('clicked', lambda *_: self.on_refresh())
 
+        actions_top.pack_start(settings_btn, True, True, 0)
+        actions_top.pack_start(refresh_btn, True, True, 0)
+        card.pack_start(actions_top, False, False, 0)
+
+        actions_bottom = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        actions_bottom.set_homogeneous(True)
+
+        reload_btn = Gtk.Button(label='Reload App')
+        reload_btn.get_style_context().add_class('salat-btn')
+        reload_btn.connect('clicked', self._on_reload_clicked)
+
         quit_btn = Gtk.Button(label='Quit')
         quit_btn.get_style_context().add_class('salat-btn')
         quit_btn.get_style_context().add_class('salat-btn-danger')
-        quit_btn.connect('clicked', lambda *_: Gtk.main_quit())
+        quit_btn.connect('clicked', self._on_quit_clicked)
 
-        actions.pack_start(settings_btn, True, True, 0)
-        actions.pack_start(refresh_btn, True, True, 0)
-        actions.pack_start(quit_btn, True, True, 0)
-        card.pack_start(actions, False, False, 0)
+        actions_bottom.pack_start(reload_btn, True, True, 0)
+        actions_bottom.pack_start(quit_btn, True, True, 0)
+        card.pack_start(actions_bottom, False, False, 0)
 
     def _on_key_press(self, _widget, event) -> bool:
         if event.keyval == Gdk.KEY_Escape:
@@ -139,6 +154,18 @@ class PopupWindow(Gtk.Window):
     def _on_schedule_clicked(self, _btn: Gtk.Button) -> None:
         self.hide()
         self.on_open_schedule()
+
+    def _on_reload_clicked(self, _btn: Gtk.Button) -> None:
+        self.hide()
+        if self.on_reload:
+            self.on_reload()
+
+    def _on_quit_clicked(self, _btn: Gtk.Button) -> None:
+        self.hide()
+        if self.on_quit:
+            self.on_quit()
+        else:
+            Gtk.main_quit()
 
     def update_hero(
         self,
@@ -226,14 +253,22 @@ class PopupWindow(Gtk.Window):
         display = Gdk.Display.get_default()
         monitor = display.get_primary_monitor() or display.get_monitor(0)
         geo = monitor.get_geometry()
-        px, py = anchor_window.get_position()
-        pw, ph = anchor_window.get_size()
+        wa = monitor.get_workarea()
+        panel_bottom = wa.y if wa.y > geo.y else geo.y + 28
+
+        if hasattr(anchor_window, 'get_screen_rect'):
+            px, py, pw, ph = anchor_window.get_screen_rect()
+        else:
+            px, py = anchor_window.get_position()
+            pw, ph = anchor_window.get_size()
         mw, mh = self.get_size()
 
-        target_x = max(geo.x + 8, min(px + pw - mw, geo.x + geo.width - mw - 8))
-        target_y = py + ph + 8
+        # Center horizontally beneath the pill, clamped to monitor bounds
+        centered_x = px + (pw - mw) // 2
+        target_x = max(geo.x + 8, min(centered_x, geo.x + geo.width - mw - 8))
+        target_y = max(panel_bottom + 6, py + ph + 8)
         if target_y + mh > geo.y + geo.height - 8:
-            target_y = max(geo.y + 8, py - mh - 8)
+            target_y = max(panel_bottom + 6, py - mh - 8)
         self.move(target_x, target_y)
 
     def toggle_near(
