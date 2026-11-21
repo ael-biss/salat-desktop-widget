@@ -13,6 +13,7 @@ from salat_widget.core.calculator import (
     format_countdown,
     parse_prayer_entries,
 )
+from salat_widget.i18n import STRINGS, format_date, is_rtl, normalize_lang, prayer_name, tr
 from salat_widget.models import UserConfig
 from salat_widget.services.update_service import is_newer_version, parse_semver
 from salat_widget.services.x11_topbar import (
@@ -155,6 +156,30 @@ class TestSalatWidget(unittest.TestCase):
         self.assertGreaterEqual(ctypes.sizeof(XEvent), 192)
         self.assertGreater(ctypes.sizeof(XGenericEventCookie), 0)
         self.assertGreater(ctypes.sizeof(XIRawEvent), 0)
+
+    def test_arabic_and_english_i18n(self):
+        # All English keys have Arabic translations
+        self.assertEqual(set(STRINGS['en'].keys()), set(STRINGS['ar'].keys()))
+        self.assertEqual(normalize_lang('ar'), 'ar')
+        self.assertEqual(normalize_lang('AR'), 'ar')
+        self.assertEqual(normalize_lang('unknown'), 'en')
+        self.assertTrue(is_rtl('ar'))
+        self.assertFalse(is_rtl('en'))
+
+        self.assertEqual(prayer_name('Dhuhr', lang='ar', is_friday=False), 'الظهر')
+        self.assertEqual(prayer_name('Dhuhr', lang='ar', is_friday=True), 'الجمعة')
+        self.assertEqual(prayer_name('Ishae', lang='ar'), 'العشاء')
+        self.assertEqual(tr('ar', 'iqama_prefix', prayer='المغرب'), 'إقامة المغرب')
+
+        sat = datetime.datetime(2026, 11, 21, 11, 0, 0)
+        self.assertEqual(format_date(sat, 'ar'), 'السبت، 21 نوفمبر 2026')
+
+        entries_ar = parse_prayer_entries(SAMPLE_DAY, UserConfig().iqama_delays, sat, lang='ar')
+        self.assertEqual(entries_ar[0].name, 'الفجر')
+
+        cfg = UserConfig(language='ar')
+        restored = UserConfig.from_dict(cfg.to_dict())
+        self.assertEqual(restored.language, 'ar')
 
 
 if __name__ == '__main__':

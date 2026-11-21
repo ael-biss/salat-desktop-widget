@@ -3,7 +3,8 @@
 import datetime
 from typing import Dict, List, Optional
 
-from salat_widget.constants import DEFAULT_IQAMA_DELAYS, PRAYER_LABELS, PRAYER_ORDER
+from salat_widget.constants import DEFAULT_IQAMA_DELAYS, PRAYER_ORDER
+from salat_widget.i18n import prayer_name
 from salat_widget.models import ActivePrayer, PrayerEntry
 
 
@@ -20,6 +21,7 @@ def parse_prayer_entries(
     day_data: Optional[Dict[str, str]],
     iqama_delays: Dict[str, int],
     now: datetime.datetime,
+    lang: str = 'en',
 ) -> List[PrayerEntry]:
     if not day_data:
         return []
@@ -35,7 +37,7 @@ def parse_prayer_entries(
         adhan_dt = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
         delay = int(iqama_delays.get(key, DEFAULT_IQAMA_DELAYS[key]))
         iqama_dt = adhan_dt + datetime.timedelta(minutes=delay)
-        display_name = "Jumu'ah" if (key == 'Dhuhr' and is_friday) else PRAYER_LABELS[key]
+        display_name = prayer_name(key, lang=lang, is_friday=is_friday)
         entries.append(
             PrayerEntry(
                 key=key,

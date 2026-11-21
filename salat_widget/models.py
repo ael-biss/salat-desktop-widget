@@ -5,6 +5,7 @@ import datetime
 from typing import Dict, Optional
 
 from salat_widget.constants import DEFAULT_FRIDAY_REMINDER_MINUTES, DEFAULT_IQAMA_DELAYS
+from salat_widget.i18n import normalize_lang
 
 
 @dataclass
@@ -21,6 +22,7 @@ class UserConfig:
     widget_y: Optional[int] = None
     top_bar_mode: bool = True
     top_bar_x: Optional[int] = None
+    language: str = 'en'
 
     def to_dict(self) -> dict:
         return {
@@ -36,6 +38,7 @@ class UserConfig:
             'widgetY': self.widget_y,
             'topBarMode': self.top_bar_mode,
             'topBarX': self.top_bar_x,
+            'language': normalize_lang(self.language),
         }
 
     @classmethod
@@ -74,6 +77,7 @@ class UserConfig:
             widget_y=wy if isinstance(wy, int) else None,
             top_bar_mode=bool(data.get('topBarMode', True)),
             top_bar_x=tbx if isinstance(tbx, int) else None,
+            language=normalize_lang(data.get('language', 'en')),
         )
 
 

@@ -17,6 +17,7 @@ from salat_widget.core.calculator import (
     format_countdown,
     parse_prayer_entries,
 )
+from salat_widget.i18n import is_rtl, prayer_name, tr
 from salat_widget.models import ActivePrayer, PrayerEntry, UserConfig
 from salat_widget.services.audio_service import AudioService
 from salat_widget.services.config_service import ConfigService
@@ -32,7 +33,7 @@ from salat_widget.services.x11_topbar import (
 from salat_widget.ui.popup_window import PopupWindow
 from salat_widget.ui.schedule_window import ScheduleWindow
 from salat_widget.ui.settings_window import SettingsWindow
-from salat_widget.ui.styles import enable_rgba, load_mosque_icon
+from salat_widget.ui.styles import apply_rtl_layout, enable_rgba, load_mosque_icon
 
 
 class PillWindow(Gtk.Window):
@@ -131,7 +132,7 @@ class PillWindow(Gtk.Window):
             self.icon_widget.set_from_pixbuf(self._icon_green)
             self.pill.pack_start(self.icon_widget, False, False, 0)
 
-        self.name_lbl = Gtk.Label(label='Salat')
+        self.name_lbl = Gtk.Label(label=tr(self.config_service.config.language, 'salat'))
         self.name_lbl.get_style_context().add_class('salat-pill-name')
         self.pill.pack_start(self.name_lbl, False, False, 0)
 
@@ -140,6 +141,7 @@ class PillWindow(Gtk.Window):
         self.pill.pack_start(sep_lbl, False, False, 0)
 
         self.time_lbl = Gtk.Label(label='--:--')
+        self.time_lbl.set_direction(Gtk.TextDirection.LTR)
         self.time_lbl.get_style_context().add_class('salat-pill-time')
         self.pill.pack_start(self.time_lbl, False, False, 0)
 
@@ -154,7 +156,10 @@ class PillWindow(Gtk.Window):
             on_reload_app=self.reload_app,
             on_quit_app=self.quit_app,
         )
-        self.schedule_win = ScheduleWindow(prayer_service=self.prayer_service)
+        self.schedule_win = ScheduleWindow(
+            prayer_service=self.prayer_service,
+            config_service=self.config_service,
+        )
         self.popup_win = PopupWindow(
             config_service=self.config_service,
             on_open_settings=self.settings_win.open_window,
@@ -182,6 +187,7 @@ class PillWindow(Gtk.Window):
                     GLib.idle_add(self.on_top_bar_mode_changed, False)
 
         self.show_all()
+        apply_rtl_layout(self, is_rtl(self.config_service.config.language), ltr_widgets=(self.time_lbl,))
         GLib.idle_add(self._apply_initial_position)
 
         if self.day_data:
@@ -229,14 +235,18 @@ class PillWindow(Gtk.Window):
         _error: Optional[str],
     ) -> None:
         if remote_version:
+            lang = self.config_service.config.language
             GLib.idle_add(
                 self.system_service.notify,
-                'Salat Widget Update Available',
-                f'Version {remote_version} is available. Open Settings to update.',
+                tr(lang, 'notif_update_title'),
+                tr(lang, 'notif_update_body', version=remote_version),
                 self.config_service.config.notifications_enabled,
             )
 
-    def _on_config_changed(self, _cfg: UserConfig) -> None:
+    def _on_config_changed(self, cfg: UserConfig) -> None:
+        apply_rtl_layout(self, is_rtl(cfg.language), ltr_widgets=(self.time_lbl,))
+        self.popup_win.apply_language(cfg.language)
+        self.schedule_win.apply_language(cfg.language)
         self._on_tick()
         if self.popup_win.get_visible():
             self.popup_win.update_content(self.day_data, self.active, self.entries, datetime.datetime.now())
@@ -485,7 +495,7 @@ class PillWindow(Gtk.Window):
     def refresh_data(self, force: bool = False) -> None:
         today = datetime.date.today()
         if not self.day_data:
-            self.name_lbl.set_text('Sync...')
+            self.name_lbl.set_text(tr(self.config_service.config.language, 'syncing'))
 
         def handle_success(data: Dict[str, str]) -> None:
             GLib.idle_add(self._on_data_loaded, data, today)
@@ -510,7 +520,7 @@ class PillWindow(Gtk.Window):
 
     def _on_data_error(self) -> bool:
         if not self.day_data:
-            self.name_lbl.set_text('Offline')
+            self.name_lbl.set_text(tr(self.config_service.config.language, 'offline'))
             self.time_lbl.set_text('--:--')
         return False
 
@@ -524,28 +534,29 @@ class PillWindow(Gtk.Window):
 
     def _build_simulated_state(self, now: datetime.datetime) -> Optional[tuple]:
         elapsed = (now - self._sim_start).total_seconds()
+        lang = self.config_service.config.language
         if self.simulate == 'adhan':
             adhan_dt = self._sim_start + datetime.timedelta(seconds=3)
             iqama_dt = adhan_dt + datetime.timedelta(seconds=15)
-            entry = PrayerEntry('Dhuhr', 'Dhuhr (Test)', adhan_dt.strftime('%H:%M'), 1, adhan_dt, iqama_dt)
+            entry = PrayerEntry('Dhuhr', prayer_name('Dhuhr', lang), adhan_dt.strftime('%H:%M'), 1, adhan_dt, iqama_dt)
             phase = 'NEXT_ADHAN' if now < adhan_dt else ('IQAMA' if now < iqama_dt else 'NEXT_ADHAN')
             if now >= iqama_dt:
-                entry = PrayerEntry('Asr', 'Asr (Test)', (now + datetime.timedelta(hours=2)).strftime('%H:%M'), 12, now + datetime.timedelta(hours=2), now + datetime.timedelta(hours=2, minutes=12))
+                entry = PrayerEntry('Asr', prayer_name('Asr', lang), (now + datetime.timedelta(hours=2)).strftime('%H:%M'), 12, now + datetime.timedelta(hours=2), now + datetime.timedelta(hours=2, minutes=12))
             return ([entry], ActivePrayer(phase=phase, prayer=entry), now)
         if self.simulate == 'iqama':
             adhan_dt = self._sim_start - datetime.timedelta(seconds=60)
             iqama_dt = self._sim_start + datetime.timedelta(seconds=10)
-            entry = PrayerEntry('Maghrib', 'Maghrib (Test)', adhan_dt.strftime('%H:%M'), 7, adhan_dt, iqama_dt)
+            entry = PrayerEntry('Maghrib', prayer_name('Maghrib', lang), adhan_dt.strftime('%H:%M'), 7, adhan_dt, iqama_dt)
             if now < iqama_dt:
                 return ([entry], ActivePrayer(phase='IQAMA', prayer=entry), now)
-            next_entry = PrayerEntry('Ishae', 'Isha (Test)', (now + datetime.timedelta(hours=1)).strftime('%H:%M'), 12, now + datetime.timedelta(hours=1), now + datetime.timedelta(hours=1, minutes=12))
+            next_entry = PrayerEntry('Ishae', prayer_name('Ishae', lang), (now + datetime.timedelta(hours=1)).strftime('%H:%M'), 12, now + datetime.timedelta(hours=1), now + datetime.timedelta(hours=1, minutes=12))
             return ([entry, next_entry], ActivePrayer(phase='NEXT_ADHAN', prayer=next_entry), now)
         if self.simulate == 'jumaa':
             days_until_fri = (4 - now.weekday()) % 7
             sim_now = (now + datetime.timedelta(days=days_until_fri)).replace(hour=12, minute=0, second=0, microsecond=0) + datetime.timedelta(seconds=elapsed)
             dhuhr_dt = sim_now.replace(hour=12, minute=30, second=0, microsecond=0)
             iqama_dt = dhuhr_dt + datetime.timedelta(minutes=12)
-            entry = PrayerEntry('Dhuhr', "Jumu'ah", '12:30', 12, dhuhr_dt, iqama_dt)
+            entry = PrayerEntry('Dhuhr', prayer_name('Dhuhr', lang, is_friday=True), '12:30', 12, dhuhr_dt, iqama_dt)
             return ([entry], ActivePrayer(phase='NEXT_ADHAN', prayer=entry), sim_now)
         return None
 
@@ -576,11 +587,13 @@ class PillWindow(Gtk.Window):
             if not self.day_data:
                 return True
 
-            self.entries = parse_prayer_entries(self.day_data, cfg.iqama_delays, now)
+            self.entries = parse_prayer_entries(self.day_data, cfg.iqama_delays, now, lang=cfg.language)
             self.active = find_active_prayer(self.entries, cfg.iqama_delays, now)
 
         if not self.active:
             return True
+
+        lang = cfg.language
 
         # Jumu'ah (Friday) reminder check
         if cfg.friday_reminder_enabled:
@@ -590,8 +603,8 @@ class PillWindow(Gtk.Window):
                 if jumaa_key not in self.triggered_events:
                     self.triggered_events.add(jumaa_key)
                     self.system_service.notify(
-                        "Jumu'ah Reminder",
-                        f"Jumu'ah prayer is in {rem_min} minutes. Prepare for Friday prayer.",
+                        tr(lang, 'notif_jumaa_title'),
+                        tr(lang, 'notif_jumaa_body', minutes=rem_min),
                         enabled=cfg.notifications_enabled,
                     )
 
@@ -603,15 +616,15 @@ class PillWindow(Gtk.Window):
             ctx.add_class('iqama-mode')
             self._set_icon_red(True)
             diff = (prayer.iqama_dt - now).total_seconds()
-            self.name_lbl.set_text(f'Iqama {prayer.name}')
+            self.name_lbl.set_text(tr(lang, 'iqama_prefix', prayer=prayer.name))
             self.time_lbl.set_text(format_countdown(diff))
 
             adhan_key = f'{today.isoformat()}-adhan-{prayer.key}'
             if adhan_key not in self.triggered_events and (now - prayer.adhan_dt).total_seconds() < 15:
                 self.triggered_events.add(adhan_key)
                 self.system_service.notify(
-                    f'{prayer.name} Adhan',
-                    f'It is time for {prayer.name} prayer in Sala Al Jadida.',
+                    tr(lang, 'notif_adhan_title', prayer=prayer.name),
+                    tr(lang, 'notif_adhan_body', prayer=prayer.name),
                     enabled=cfg.notifications_enabled,
                 )
                 if cfg.audio_enabled:
@@ -622,8 +635,8 @@ class PillWindow(Gtk.Window):
                 if iqama_key not in self.triggered_events:
                     self.triggered_events.add(iqama_key)
                     self.system_service.notify(
-                        f'{prayer.name} Iqama',
-                        'Congregation prayer is starting now.',
+                        tr(lang, 'notif_iqama_title', prayer=prayer.name),
+                        tr(lang, 'notif_iqama_body', prayer=prayer.name),
                         enabled=cfg.notifications_enabled,
                     )
                     self.system_service.lock_screen(

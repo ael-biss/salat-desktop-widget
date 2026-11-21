@@ -8,11 +8,12 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 from gi.repository import Gdk, Gtk
 
-from salat_widget.constants import CITY_NAME, DEFAULT_IQAMA_DELAYS, DISPLAY_ORDER, PRAYER_LABELS
+from salat_widget.constants import DEFAULT_IQAMA_DELAYS, DISPLAY_ORDER
 from salat_widget.core.calculator import calculate_progress, format_countdown
+from salat_widget.i18n import format_date, is_rtl, prayer_name, tr
 from salat_widget.models import ActivePrayer, PrayerEntry
 from salat_widget.services.config_service import ConfigService
-from salat_widget.ui.styles import enable_rgba, load_mosque_icon
+from salat_widget.ui.styles import apply_rtl_layout, enable_rgba, load_mosque_icon
 
 
 class PopupWindow(Gtk.Window):
@@ -60,7 +61,7 @@ class PopupWindow(Gtk.Window):
             header.pack_start(self.header_icon, False, False, 0)
 
         title_col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        self.title_lbl = Gtk.Label(label=CITY_NAME, xalign=0)
+        self.title_lbl = Gtk.Label(xalign=0)
         self.title_lbl.get_style_context().add_class('salat-title')
         self.sub_lbl = Gtk.Label(xalign=0)
         self.sub_lbl.get_style_context().add_class('salat-subtitle')
@@ -79,7 +80,7 @@ class PopupWindow(Gtk.Window):
         self.hero_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.hero_card.get_style_context().add_class('salat-hero-card')
 
-        self.hero_badge = Gtk.Label(label='NEXT PRAYER', xalign=0)
+        self.hero_badge = Gtk.Label(xalign=0)
         self.hero_badge.get_style_context().add_class('salat-hero-badge')
         self.hero_card.pack_start(self.hero_badge, False, False, 0)
 
@@ -87,6 +88,7 @@ class PopupWindow(Gtk.Window):
         self.hero_name = Gtk.Label(label='--', xalign=0)
         self.hero_name.get_style_context().add_class('salat-hero-name')
         self.hero_countdown = Gtk.Label(label='--:--:--', xalign=1)
+        self.hero_countdown.set_direction(Gtk.TextDirection.LTR)
         self.hero_countdown.get_style_context().add_class('salat-hero-countdown')
         hero_mid.pack_start(self.hero_name, True, True, 0)
         hero_mid.pack_end(self.hero_countdown, False, False, 0)
@@ -104,42 +106,58 @@ class PopupWindow(Gtk.Window):
         card.pack_start(self.table_box, False, False, 0)
 
         # Full Schedule button
-        schedule_btn = Gtk.Button(label='View Full Monthly Schedule')
-        schedule_btn.get_style_context().add_class('salat-btn')
-        schedule_btn.connect('clicked', self._on_schedule_clicked)
-        card.pack_start(schedule_btn, False, False, 0)
+        self.schedule_btn = Gtk.Button()
+        self.schedule_btn.get_style_context().add_class('salat-btn')
+        self.schedule_btn.connect('clicked', self._on_schedule_clicked)
+        card.pack_start(self.schedule_btn, False, False, 0)
 
         # Footer actions (2x2 clean grid: Settings / Refresh + Reload / Quit)
         actions_top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         actions_top.set_homogeneous(True)
 
-        settings_btn = Gtk.Button(label='Settings')
-        settings_btn.get_style_context().add_class('salat-btn-primary')
-        settings_btn.connect('clicked', self._on_settings_clicked)
+        self.settings_btn = Gtk.Button()
+        self.settings_btn.get_style_context().add_class('salat-btn-primary')
+        self.settings_btn.connect('clicked', self._on_settings_clicked)
 
-        refresh_btn = Gtk.Button(label='Refresh')
-        refresh_btn.get_style_context().add_class('salat-btn')
-        refresh_btn.connect('clicked', lambda *_: self.on_refresh())
+        self.refresh_btn = Gtk.Button()
+        self.refresh_btn.get_style_context().add_class('salat-btn')
+        self.refresh_btn.connect('clicked', lambda *_: self.on_refresh())
 
-        actions_top.pack_start(settings_btn, True, True, 0)
-        actions_top.pack_start(refresh_btn, True, True, 0)
+        actions_top.pack_start(self.settings_btn, True, True, 0)
+        actions_top.pack_start(self.refresh_btn, True, True, 0)
         card.pack_start(actions_top, False, False, 0)
 
         actions_bottom = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         actions_bottom.set_homogeneous(True)
 
-        reload_btn = Gtk.Button(label='Reload App')
-        reload_btn.get_style_context().add_class('salat-btn')
-        reload_btn.connect('clicked', self._on_reload_clicked)
+        self.reload_btn = Gtk.Button()
+        self.reload_btn.get_style_context().add_class('salat-btn')
+        self.reload_btn.connect('clicked', self._on_reload_clicked)
 
-        quit_btn = Gtk.Button(label='Quit')
-        quit_btn.get_style_context().add_class('salat-btn')
-        quit_btn.get_style_context().add_class('salat-btn-danger')
-        quit_btn.connect('clicked', self._on_quit_clicked)
+        self.quit_btn = Gtk.Button()
+        self.quit_btn.get_style_context().add_class('salat-btn')
+        self.quit_btn.get_style_context().add_class('salat-btn-danger')
+        self.quit_btn.connect('clicked', self._on_quit_clicked)
 
-        actions_bottom.pack_start(reload_btn, True, True, 0)
-        actions_bottom.pack_start(quit_btn, True, True, 0)
+        actions_bottom.pack_start(self.reload_btn, True, True, 0)
+        actions_bottom.pack_start(self.quit_btn, True, True, 0)
         card.pack_start(actions_bottom, False, False, 0)
+
+        self.apply_language(self.config_service.config.language)
+
+    def _lang(self) -> str:
+        return self.config_service.config.language
+
+    def apply_language(self, lang: str) -> None:
+        apply_rtl_layout(self, is_rtl(lang), ltr_widgets=(self.hero_countdown,))
+        self.title_lbl.set_text(tr(lang, 'city_name'))
+        self.schedule_btn.set_label(tr(lang, 'view_monthly_schedule'))
+        self.settings_btn.set_label(tr(lang, 'settings'))
+        self.refresh_btn.set_label(tr(lang, 'refresh'))
+        self.reload_btn.set_label(tr(lang, 'reload_app'))
+        self.quit_btn.set_label(tr(lang, 'quit'))
+        if not self.hero_badge.get_text():
+            self.hero_badge.set_text(tr(lang, 'next_prayer'))
 
     def _on_key_press(self, _widget, event) -> bool:
         if event.keyval == Gdk.KEY_Escape:
@@ -175,15 +193,16 @@ class PopupWindow(Gtk.Window):
     ) -> None:
         if not active:
             return
+        lang = self._lang()
         ctx = self.hero_card.get_style_context()
         is_iqama = active.phase == 'IQAMA'
         if is_iqama:
             ctx.add_class('iqama-mode')
-            self.hero_badge.set_text('IQAMA COUNTDOWN')
+            self.hero_badge.set_text(tr(lang, 'iqama_countdown'))
             diff = (active.prayer.iqama_dt - now).total_seconds()
         else:
             ctx.remove_class('iqama-mode')
-            self.hero_badge.set_text('NEXT PRAYER')
+            self.hero_badge.set_text(tr(lang, 'next_prayer'))
             diff = (active.prayer.adhan_dt - now).total_seconds()
 
         if is_iqama != self._is_red_icon:
@@ -203,14 +222,16 @@ class PopupWindow(Gtk.Window):
         entries: List[PrayerEntry],
         now: datetime.datetime,
     ) -> None:
-        self.sub_lbl.set_text(now.strftime('%A, %d %b %Y'))
+        lang = self._lang()
+        self.apply_language(lang)
+        self.sub_lbl.set_text(format_date(now, lang))
         self.update_hero(active, entries, now)
 
         for child in self.table_box.get_children():
             self.table_box.remove(child)
 
         if not day_data:
-            lbl = Gtk.Label(label='Loading Sala Al Jadida schedule...')
+            lbl = Gtk.Label(label=tr(lang, 'loading_schedule'))
             lbl.get_style_context().add_class('salat-hint')
             self.table_box.pack_start(lbl, False, False, 12)
             self.table_box.show_all()
@@ -221,6 +242,7 @@ class PopupWindow(Gtk.Window):
         is_friday = now.weekday() == 4
         delays = self.config_service.config.iqama_delays
 
+        ltr_times = []
         for key in DISPLAY_ORDER:
             time_str = day_data.get(key, '--:--')
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -230,23 +252,25 @@ class PopupWindow(Gtk.Window):
                 if is_iqama:
                     row.get_style_context().add_class('iqama-mode')
 
-            display_name = "Jumu'ah" if (key == 'Dhuhr' and is_friday) else PRAYER_LABELS[key]
+            display_name = prayer_name(key, lang=lang, is_friday=is_friday)
             name_lbl = Gtk.Label(label=display_name, xalign=0)
             name_lbl.get_style_context().add_class('salat-row-name')
             row.pack_start(name_lbl, True, True, 0)
 
             time_lbl = Gtk.Label(label=time_str, xalign=1)
             time_lbl.get_style_context().add_class('salat-row-time')
+            ltr_times.append(time_lbl)
             row.pack_end(time_lbl, False, False, 0)
 
             if key in DEFAULT_IQAMA_DELAYS:
                 delay_min = delays.get(key, DEFAULT_IQAMA_DELAYS[key])
-                iq_lbl = Gtk.Label(label=f'+{delay_min}m', xalign=1)
+                iq_lbl = Gtk.Label(label=tr(lang, 'iqama_pill', minutes=delay_min), xalign=1)
                 iq_lbl.get_style_context().add_class('salat-iqama-pill')
                 row.pack_end(iq_lbl, False, False, 4)
 
             self.table_box.pack_start(row, False, False, 0)
 
+        apply_rtl_layout(self.table_box, is_rtl(lang), ltr_widgets=ltr_times)
         self.table_box.show_all()
 
     def position_near(self, anchor_window: Gtk.Window) -> None:

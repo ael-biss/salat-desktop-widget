@@ -13,7 +13,7 @@ from salat_widget.constants import DEFAULT_ICON_PATH, RED_ICON_PATH
 
 APP_CSS = b"""
 * {
-    font-family: "Ubuntu", "Inter", "Cantarell", "DejaVu Sans", sans-serif;
+    font-family: "Ubuntu", "Noto Sans Arabic", "Inter", "Cantarell", "DejaVu Sans", sans-serif;
 }
 
 window.salat-transparent {
@@ -473,3 +473,29 @@ def load_mosque_icon(size: int, red: bool = False) -> Optional[GdkPixbuf.Pixbuf]
         except Exception:
             pass
     return None
+
+
+def apply_rtl_layout(root: Gtk.Widget, rtl: bool, ltr_widgets=()) -> None:
+    """Recursively apply RTL or LTR direction across a GTK3 widget tree.
+
+    Note: GTK3 automatically mirrors Gtk.Label xalign (0.0 -> right in RTL,
+    1.0 -> left in RTL), so we only need to set widget text direction and
+    justification for multi-line wrapped labels.
+    """
+    direction = Gtk.TextDirection.RTL if rtl else Gtk.TextDirection.LTR
+    Gtk.Widget.set_default_direction(direction)
+    ltr_set = set(ltr_widgets)
+
+    def _walk(widget: Gtk.Widget) -> None:
+        if widget in ltr_set:
+            widget.set_direction(Gtk.TextDirection.LTR)
+            return
+        widget.set_direction(direction)
+        if isinstance(widget, Gtk.Label) and widget.get_line_wrap():
+            widget.set_justify(Gtk.Justification.RIGHT if rtl else Gtk.Justification.LEFT)
+        if isinstance(widget, Gtk.Container):
+            for child in widget.get_children():
+                _walk(child)
+
+    _walk(root)
+    root.queue_resize()
