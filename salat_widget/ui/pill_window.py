@@ -379,6 +379,14 @@ class PillWindow(Gtk.Window):
 
     def _on_raw_button_press(self, button: int, rx_px: int, ry_px: int) -> None:
         lx, ly = self._x11_to_logical(rx_px, ry_px)
+        geo, panel_h = self._get_monitor_metrics()
+        in_top_bar = geo.y <= ly <= geo.y + panel_h
+        if in_top_bar and self.settings_win.get_visible() and not self.settings_win.is_modal_open:
+            self.settings_win.close_window()
+            return
+        if in_top_bar and self.popup_win.get_visible() and not self._hit_test_top_bar(lx, ly):
+            self.popup_win.hide()
+            return
         if not self._hit_test_top_bar(lx, ly):
             return
         if button in (1, 2):
@@ -390,6 +398,7 @@ class PillWindow(Gtk.Window):
             self._raw_win_start_x = self._pos_x
         elif button == 3:
             self.popup_win.hide()
+            self.schedule_win.hide()
             self.settings_win.open_window()
 
     def _finish_raw_drag(self, button: int) -> None:
@@ -452,6 +461,9 @@ class PillWindow(Gtk.Window):
     # --- Floating Mode GTK Pointer Handlers ---
 
     def _on_button_press(self, _widget, event) -> bool:
+        if self.settings_win.get_visible() and not self.settings_win.is_modal_open:
+            self.settings_win.close_window()
+            return True
         if event.button == 1:
             self._dragging = True
             self._drag_moved = False
@@ -461,6 +473,7 @@ class PillWindow(Gtk.Window):
             return True
         if event.button == 3:
             self.popup_win.hide()
+            self.schedule_win.hide()
             self.settings_win.open_window()
             return True
         return False

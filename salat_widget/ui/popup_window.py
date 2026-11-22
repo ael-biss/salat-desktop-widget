@@ -1,6 +1,7 @@
 """Schedule popup window anchored near the floating desktop pill."""
 
 import datetime
+import time
 from typing import Callable, Dict, List, Optional
 
 import gi
@@ -33,6 +34,7 @@ class PopupWindow(Gtk.Window):
         self.on_refresh = on_refresh
         self.on_reload = on_reload
         self.on_quit = on_quit
+        self._opened_at: float = 0.0
 
         self.get_style_context().add_class('salat-transparent')
         self.set_decorated(False)
@@ -44,6 +46,7 @@ class PopupWindow(Gtk.Window):
         enable_rgba(self)
 
         self.connect('key-press-event', self._on_key_press)
+        self.connect('focus-out-event', self._on_focus_out)
 
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         card.get_style_context().add_class('salat-card')
@@ -158,6 +161,12 @@ class PopupWindow(Gtk.Window):
         self.quit_btn.set_label(tr(lang, 'quit'))
         if not self.hero_badge.get_text():
             self.hero_badge.set_text(tr(lang, 'next_prayer'))
+
+    def _on_focus_out(self, _widget, _event) -> bool:
+        if not self.get_visible() or (time.monotonic() - self._opened_at) < 0.15:
+            return False
+        self.hide()
+        return False
 
     def _on_key_press(self, _widget, event) -> bool:
         if event.keyval == Gdk.KEY_Escape:
@@ -306,6 +315,7 @@ class PopupWindow(Gtk.Window):
             self.hide()
             return
         self.update_content(day_data, active, entries, datetime.datetime.now())
+        self._opened_at = time.monotonic()
         self.show_all()
         self.position_near(anchor_window)
         self.present()

@@ -1,6 +1,7 @@
 """Dedicated Settings window for configuring language, top bar, Iqama times, Jumu'ah, audio, alerts, and lock."""
 
 import os
+import time
 from typing import Callable, Dict, List, Optional
 
 import gi
@@ -52,6 +53,8 @@ class SettingsWindow(Gtk.Window):
         self._draft_audio_path: str = ''
         self._pending_update_url: str = ''
         self._pending_update_ver: str = ''
+        self._modal_child_open: bool = False
+        self._opened_at: float = 0.0
 
         self.set_default_size(468, 620)
         self.set_resizable(True)
@@ -60,6 +63,7 @@ class SettingsWindow(Gtk.Window):
 
         self.connect('delete-event', self._on_delete)
         self.connect('key-press-event', self._on_key_press)
+        self.connect('focus-out-event', self._on_focus_out)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.add(outer)
@@ -571,10 +575,15 @@ class SettingsWindow(Gtk.Window):
             audio_filter.add_pattern(pattern)
         dialog.add_filter(audio_filter)
 
-        if dialog.run() == Gtk.ResponseType.OK:
-            self._draft_audio_path = dialog.get_filename() or ''
-            self._update_audio_label()
-        dialog.destroy()
+        self._modal_child_open = True
+        try:
+            if dialog.run() == Gtk.ResponseType.OK:
+                self._draft_audio_path = dialog.get_filename() or ''
+                self._update_audio_label()
+        finally:
+            dialog.destroy()
+            self._opened_at = time.monotonic()
+            self._modal_child_open = False
 
     def _on_clear_audio(self, _btn: Gtk.Button) -> None:
         self._draft_audio_path = ''
@@ -616,6 +625,18 @@ class SettingsWindow(Gtk.Window):
         else:
             self.config_service.save(notify=True)
 
+    @property
+    def is_modal_open(self) -> bool:
+        return self._modal_child_open
+
+    def _on_focus_out(self, _widget, _event) -> bool:
+        if self._modal_child_open or not self.get_visible():
+            return False
+        if (time.monotonic() - self._opened_at) < 0.15:
+            return False
+        self._cancel_and_close()
+        return False
+
     def _on_key_press(self, _widget, event) -> bool:
         if event.keyval == Gdk.KEY_Escape:
             self._cancel_and_close()
@@ -626,12 +647,16 @@ class SettingsWindow(Gtk.Window):
         self._cancel_and_close()
         return True
 
+    def close_window(self) -> None:
+        self._cancel_and_close()
+
     def _cancel_and_close(self) -> None:
         self.audio_service.stop()
         self.test_audio_btn.set_label(tr(self._lang(), 'test_audio'))
         self.hide()
 
     def open_window(self) -> None:
+        self._opened_at = time.monotonic()
         self._sync_from_config()
         self.show_all()
         self.present()
