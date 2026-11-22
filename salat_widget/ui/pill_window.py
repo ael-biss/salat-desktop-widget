@@ -244,6 +244,10 @@ class PillWindow(Gtk.Window):
             )
 
     def _on_config_changed(self, cfg: UserConfig) -> None:
+        if cfg.position_locked:
+            self._raw_dragging = False
+            self._raw_drag_button = 0
+            self._dragging = False
         apply_rtl_layout(self, is_rtl(cfg.language), ltr_widgets=(self.time_lbl,))
         self.popup_win.apply_language(cfg.language)
         self.schedule_win.apply_language(cfg.language)
@@ -389,6 +393,8 @@ class PillWindow(Gtk.Window):
             return
         if not self._hit_test_top_bar(lx, ly):
             return
+        if button == 2 and self.config_service.config.position_locked:
+            return
         if button in (1, 2):
             self._raw_dragging = True
             self._raw_drag_button = button
@@ -421,6 +427,8 @@ class PillWindow(Gtk.Window):
         expected_mask = BUTTON1_MASK if self._raw_drag_button == 1 else BUTTON2_MASK
         if (mask & expected_mask) == 0:
             self._finish_raw_drag(self._raw_drag_button)
+            return
+        if self.config_service.config.position_locked:
             return
         dx = lx - self._raw_drag_start_x
         if abs(dx) > 6:
@@ -479,7 +487,7 @@ class PillWindow(Gtk.Window):
         return False
 
     def _on_motion(self, _widget, event) -> bool:
-        if not self._dragging:
+        if not self._dragging or self.config_service.config.position_locked:
             return False
         dx = int(event.x_root - self._drag_start_x)
         dy = int(event.y_root - self._drag_start_y)

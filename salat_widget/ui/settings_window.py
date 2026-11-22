@@ -181,6 +181,14 @@ class SettingsWindow(Gtk.Window):
         mode_row.pack_end(self.top_bar_switch, False, False, 0)
         box.pack_start(mode_row, False, False, 0)
 
+        pin_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.pin_pos_lbl = Gtk.Label(xalign=0)
+        self.pin_pos_lbl.get_style_context().add_class('salat-field-label')
+        self.pin_switch = Gtk.Switch()
+        pin_row.pack_start(self.pin_pos_lbl, True, True, 0)
+        pin_row.pack_end(self.pin_switch, False, False, 0)
+        box.pack_start(pin_row, False, False, 0)
+
         self.topbar_hint_lbl = Gtk.Label(xalign=0)
         self.topbar_hint_lbl.set_line_wrap(True)
         self.topbar_hint_lbl.set_max_width_chars(46)
@@ -438,6 +446,7 @@ class SettingsWindow(Gtk.Window):
 
         self.topbar_sec_title.set_text(tr(norm, 'sec_top_bar'))
         self.topbar_mode_lbl.set_text(tr(norm, 'dock_top_bar'))
+        self.pin_pos_lbl.set_text(tr(norm, 'pin_position_toggle'))
         self.topbar_hint_lbl.set_text(tr(norm, 'top_bar_hint'))
         self._preset_buttons['left'].set_label(tr(norm, 'preset_left'))
         self._preset_buttons['right'].set_label(tr(norm, 'preset_right'))
@@ -530,6 +539,7 @@ class SettingsWindow(Gtk.Window):
     def _sync_from_config(self) -> None:
         cfg = self.config_service.config
         self.top_bar_switch.set_active(cfg.top_bar_mode)
+        self.pin_switch.set_active(cfg.position_locked)
         self.preset_row.set_sensitive(cfg.top_bar_mode)
         for key, spin in self._spin_buttons.items():
             spin.set_value(cfg.iqama_delays.get(key, DEFAULT_IQAMA_DELAYS[key]))
@@ -607,6 +617,7 @@ class SettingsWindow(Gtk.Window):
             cfg.iqama_delays[key] = int(spin.get_value())
 
         cfg.top_bar_mode = self.top_bar_switch.get_active()
+        cfg.position_locked = self.pin_switch.get_active()
         cfg.notifications_enabled = self.notif_switch.get_active()
         cfg.friday_reminder_enabled = self.jumaa_switch.get_active()
         cfg.friday_reminder_minutes = int(self.jumaa_spin.get_value())

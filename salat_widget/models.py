@@ -22,6 +22,7 @@ class UserConfig:
     widget_y: Optional[int] = None
     top_bar_mode: bool = True
     top_bar_x: Optional[int] = None
+    position_locked: bool = False
     language: str = 'en'
 
     def to_dict(self) -> dict:
@@ -38,6 +39,7 @@ class UserConfig:
             'widgetY': self.widget_y,
             'topBarMode': self.top_bar_mode,
             'topBarX': self.top_bar_x,
+            'positionLocked': self.position_locked,
             'language': normalize_lang(self.language),
         }
 
@@ -77,6 +79,7 @@ class UserConfig:
             widget_y=wy if isinstance(wy, int) else None,
             top_bar_mode=bool(data.get('topBarMode', True)),
             top_bar_x=tbx if isinstance(tbx, int) else None,
+            position_locked=bool(data.get('positionLocked', False)),
             language=normalize_lang(data.get('language', 'en')),
         )
 

@@ -394,6 +394,18 @@ switch slider {
     color: #fca5a5;
 }
 
+.salat-btn-pinned {
+    background-color: #132b24;
+    border-color: #10b981;
+    color: #34d399;
+}
+
+.salat-btn-pinned:hover {
+    background-color: #1a3a30;
+    border-color: #34d399;
+    color: #ffffff;
+}
+
 /* Monthly Schedule Table */
 .salat-sched-header {
     background-color: #141b24;

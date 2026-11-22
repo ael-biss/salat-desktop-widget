@@ -114,6 +114,12 @@ class PopupWindow(Gtk.Window):
         self.schedule_btn.connect('clicked', self._on_schedule_clicked)
         card.pack_start(self.schedule_btn, False, False, 0)
 
+        # Pin / Unpin Position toggle button
+        self.pin_btn = Gtk.Button()
+        self.pin_btn.get_style_context().add_class('salat-btn')
+        self.pin_btn.connect('clicked', self._on_pin_clicked)
+        card.pack_start(self.pin_btn, False, False, 0)
+
         # Footer actions (2x2 clean grid: Settings / Refresh + Reload / Quit)
         actions_top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         actions_top.set_homogeneous(True)
@@ -159,8 +165,24 @@ class PopupWindow(Gtk.Window):
         self.refresh_btn.set_label(tr(lang, 'refresh'))
         self.reload_btn.set_label(tr(lang, 'reload_app'))
         self.quit_btn.set_label(tr(lang, 'quit'))
+        self._update_pin_button()
         if not self.hero_badge.get_text():
             self.hero_badge.set_text(tr(lang, 'next_prayer'))
+
+    def _update_pin_button(self) -> None:
+        pinned = self.config_service.config.position_locked
+        lang = self._lang()
+        self.pin_btn.set_label(tr(lang, 'unpin_btn' if pinned else 'pin_btn'))
+        ctx = self.pin_btn.get_style_context()
+        if pinned:
+            ctx.add_class('salat-btn-pinned')
+        else:
+            ctx.remove_class('salat-btn-pinned')
+
+    def _on_pin_clicked(self, _btn: Gtk.Button) -> None:
+        self.config_service.config.position_locked = not self.config_service.config.position_locked
+        self.config_service.save(notify=True)
+        self._update_pin_button()
 
     def _on_focus_out(self, _widget, _event) -> bool:
         if not self.get_visible() or (time.monotonic() - self._opened_at) < 0.15:
@@ -233,6 +255,7 @@ class PopupWindow(Gtk.Window):
     ) -> None:
         lang = self._lang()
         self.apply_language(lang)
+        self._update_pin_button()
         self.sub_lbl.set_text(format_date(now, lang))
         self.update_hero(active, entries, now)
 

@@ -138,11 +138,13 @@ class TestSalatWidget(unittest.TestCase):
         legacy = UserConfig.from_dict({'widgetX': 12, 'widgetY': 32})
         self.assertTrue(legacy.top_bar_mode)
         self.assertIsNone(legacy.top_bar_x)
+        self.assertFalse(legacy.position_locked)
 
-        cfg = UserConfig(top_bar_mode=False, top_bar_x=1180)
+        cfg = UserConfig(top_bar_mode=False, top_bar_x=1180, position_locked=True)
         restored = UserConfig.from_dict(cfg.to_dict())
         self.assertFalse(restored.top_bar_mode)
         self.assertEqual(restored.top_bar_x, 1180)
+        self.assertTrue(restored.position_locked)
 
     def test_x11_topbar_xi_mask_and_structs(self):
         buf = (ctypes.c_ubyte * 4)()
